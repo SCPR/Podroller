@@ -165,7 +165,7 @@ module.exports = class Core
             
             res.writeHead 200, headers
             
-            if req.method = "HEAD"
+            if req.method == "HEAD"
                 res.end()
             else
                 # if we have an id3, write that
