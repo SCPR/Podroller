@@ -30,6 +30,8 @@ module.exports = class Core
         
         @listeners = 0
         
+        @_counter = 0
+        
         # -- set up a server -- #
         
         console.log "config is ", @options
@@ -202,6 +204,8 @@ module.exports = class Core
     loadPreroll: (key,req,cb) ->
         # no preroll for head requests
         cb?() if req.method == "HEAD"
+        
+        count = @_counter++
         
         # short-circuit if we're missing any options
         console.log "preroller opts is ", @options.preroll
