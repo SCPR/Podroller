@@ -139,7 +139,10 @@ module.exports = class Core
     #----------
     
     streamPodcast: (req,res,filename,size,stream_key,id3) ->
-        @loadPreroll stream_key, (predata = null) =>
+        if req.connection.destroyed
+            return false
+        
+        @loadPreroll stream_key, req, (predata = null) =>
             # compute our final size
             fsize = (id3?.length||0) + (predata?.length||0) + size
             
@@ -196,7 +199,10 @@ module.exports = class Core
             
     #----------
     
-    loadPreroll: (key,cb) ->
+    loadPreroll: (key,req,cb) ->
+        # no preroll for head requests
+        cb?() if req.method == "HEAD"
+        
         # short-circuit if we're missing any options
         console.log "preroller opts is ", @options.preroll
         unless @options.preroll?.server && @options.preroll?.key && @options.preroll?.path
@@ -211,24 +217,45 @@ module.exports = class Core
             host:       @options.preroll.server
             path:       [@options.preroll.path,@options.preroll.key,key].join("/")
         
+        conn = req.connection
+        
+        console.log "firing preroll request", count
         req = http.get opts, (rres) =>
+            console.log "got preroll response ", count
             if rres.statusCode == 200
-                # collect preroll data and then return it
-                pre_data = new Buffer(0)
-                rres.on "data", (chunk) => 
-                    buf = new Buffer(pre_data.length + chunk.length)
-                    pre_data.copy(buf,0)
-                    chunk.copy(buf,pre_data.length)
-                    pre_data = buf
+                # stream preroll through to the output
+                rres.on "data", (chunk) =>
+                    res.write(chunk)
 
                 # when preroll is done, call the output's callback
                 rres.on "end", =>
-                    console.log "calling podcast callback with preroll data of ", pre_data.length
-                    cb?(pre_data)
+                    conn.removeListener "close", conn_pre_abort
+                    conn.removeListener "end", conn_pre_abort
+                    cb?()
                     return true
+
             else
+                conn.removeListener "close", conn_pre_abort
+                conn.removeListener "end", conn_pre_abort
                 cb?()
                 return true
-        
+
+        req.on "socket", (sock) =>
+            console.log "socket granted for ", count
+
+        req.on "error", (err) =>
+            console.log "got a request error for ", count, err
+
+        # attach a close listener to the response, to be fired if it gets 
+        # shut down and we should abort the request
+
+        conn_pre_abort = => 
+            if conn.destroyed
+                console.log "aborting preroll ", count
+                req.abort()
+
+        conn.once "close", conn_pre_abort
+        conn.once "end", conn_pre_abort
+
                             
         
