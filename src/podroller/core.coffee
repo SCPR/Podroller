@@ -120,13 +120,13 @@ module.exports = class Core
         
         parser.on "id3v2", (buf) =>
             # got an ID3
-            console.log "check got an ID3!", buf
+            #console.log "check got an ID3!", buf
             #rstream.destroy()
             cb?(buf)
             
         parser.on "header", (h,buf) =>
             # got a frame
-            console.log "check got a header!"
+            #console.log "check got a header!"
             #rstream.destroy()
             cb?()
             
@@ -143,7 +143,7 @@ module.exports = class Core
             # compute our final size
             fsize = (id3?.length||0) + (predata?.length||0) + size
             
-            console.log "id3 length is ", id3.length
+            console.log "id3 length is ", id3?.length||0
             
             @listeners++
                         
@@ -155,40 +155,44 @@ module.exports = class Core
                 "Content-Length":       fsize
                 
             console.log "final size should be ", fsize
-                
+            
+            console.log "request method is ", req.method
+            
             res.writeHead 200, headers
             
-            # if we have an id3, write that
-            res.write id3 if id3
+            if req.method = "HEAD"
+                res.end()
+            else
+                # if we have an id3, write that
+                res.write id3 if id3
                                 
-            # write the preroll
-            res.write predata if predata
+                # write the preroll
+                res.write predata if predata
             
-            # now set up our file read as a stream
-            console.log "creating read stream. #{@listeners} active downloads."
-            rstream = fs.createReadStream filename, bufferSize:256*1024
+                # now set up our file read as a stream
+                console.log "creating read stream. #{@listeners} active downloads."
+                rstream = fs.createReadStream filename, bufferSize:256*1024
 
-            rstream.pipe res, end:false
+                rstream.pipe res, end:false
                             
-            rstream.on "end", => 
-                # got to the end of the file.  close our response
-                console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
-                res.end()
+                rstream.on "end", => 
+                    # got to the end of the file.  close our response
+                    console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    res.end()
             
-            req.connection.on "end", =>
-                # connection aborted.  destroy our stream
-                @listeners--
-                console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
-                rstream?.destroy() if rstream?.reading
+                req.connection.on "end", =>
+                    # connection aborted.  destroy our stream
+                    console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    rstream?.destroy() if rstream?.readable
                 
-            req.connection.on "close", => 
-                @listeners--
-                rstream?.destroy() if rstream?.reading
+                req.connection.on "close", => 
+                    console.log "(conn close) in close. #{@listeners} active downloads."
+                    @listeners--
                 
-            req.connection.setTimeout 30*1000, =>
-                # handle connection timeout
-                res.end()
-                rstream?.destroy() if rstream?.reading
+                req.connection.setTimeout 30*1000, =>
+                    # handle connection timeout
+                    res.end()
+                    rstream?.destroy() if rstream?.readable
             
     #----------
     
