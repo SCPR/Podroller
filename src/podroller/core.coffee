@@ -107,6 +107,10 @@ module.exports = class Core
                             @res.writeHead 404, "Content-Type":"text/plain", "Connection":"close"
                             @res.end("File not found.")
                             
+        else
+            # didn't match prefix...
+            next()
+                            
     #----------
     
     checkForID3: (filename,cb) =>
