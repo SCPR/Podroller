@@ -11,6 +11,9 @@ module.exports = class Core
         log:    null
         port:   8000
         prefix: ""
+        # after a new deployment, allow a 30 minute grace period for 
+        # connected listeners to finish their downloads
+        max_zombie_life:    2 * 60 * 1000
         
     constructor: (opts) ->
         @options = _u.defaults opts||{}, @DefaultOptions
@@ -25,13 +28,41 @@ module.exports = class Core
         
         @key_cache = {}
         
+        @listeners = 0
+        
         # -- set up a server -- #
         
         console.log "config is ", @options
         
-        @server = express.createServer()
-        @server.use (req,res,next) => @podRouter(req,res,next)
-        @server.listen @options.port
+        @app = express()
+        @app.use (req,res,next) => @podRouter(req,res,next)
+        @server = @app.listen @options.port
+        
+        # -- set up a shutdown handler -- #
+        
+        process.on "SIGTERM", =>
+            # stop listening 
+            @server.close()
+            
+            # now start polling to see how many files we're delivering
+            # when should we get pushy?
+            @_shutdownMaxTime = (new Date).getTime() + @options.max_zombie_life
+            
+            console.log "Got SIGTERM. Starting graceful shutdown with #{@listeners} listeners."
+            
+            # need to start a process to quit when existing connections disconnect
+            @_shutdownTimeout = setInterval =>
+                # have we used up the grace period yet?
+                force_shut = if (new Date).getTime() > @_shutdownMaxTime then true else false                
+                    
+                if @listeners == 0 || force_shut
+                    # everyone's out...  go ahead and shut down
+                    console.log "Shutdown complete"
+                    process.exit()
+                else
+                    console.log "Still awaiting shutdown; #{@listeners} listeners"
+                
+            , 60 * 1000
         
     #----------
     
@@ -110,6 +141,8 @@ module.exports = class Core
             
             console.log "id3 length is ", id3.length
             
+            @listeners++
+                        
             # send out headers
             headers = 
                 "Content-Type":         "audio/mpeg",
@@ -128,20 +161,30 @@ module.exports = class Core
             res.write predata if predata
             
             # now set up our file read as a stream
-            console.log "creating read stream"
+            console.log "creating read stream. #{@listeners} active downloads."
             rstream = fs.createReadStream filename, bufferSize:256*1024
 
             rstream.pipe res, end:false
                             
             rstream.on "end", => 
                 # got to the end of the file.  close our response
-                console.log "wrote #{ res.socket?.bytesWritten } bytes"
+                console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                 res.end()
             
             req.connection.on "end", =>
                 # connection aborted.  destroy our stream
-                console.log "wrote #{ res.socket?.bytesWritten } bytes"
-                rstream?.destroy()
+                @listeners--
+                console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                rstream?.destroy() if rstream?.reading
+                
+            req.connection.on "close", => 
+                @listeners--
+                rstream?.destroy() if rstream?.reading
+                
+            req.connection.setTimeout 30*1000, =>
+                # handle connection timeout
+                res.end()
+                rstream?.destroy() if rstream?.reading
             
     #----------
     
