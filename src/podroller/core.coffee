@@ -227,15 +227,20 @@ module.exports = class Core
         req = http.get opts, (rres) =>
             console.log "got preroll response ", count
             if rres.statusCode == 200
-                # stream preroll through to the output
+                # collect preroll and return it so length can be computed
+                pre_data = new Buffer(0)
+                
                 rres.on "data", (chunk) =>
-                    res.write(chunk)
+                    buf = new Buffer(pre_data.length + chunk.length)
+                    pre_data.copy(buf,0)
+                    chunk.copy(buf,pre_data.length)
+                    pre_data = buf
 
                 # when preroll is done, call the output's callback
                 rres.on "end", =>
                     conn.removeListener "close", conn_pre_abort
                     conn.removeListener "end", conn_pre_abort
-                    cb?()
+                    cb?(pre_data)
                     return true
 
             else
