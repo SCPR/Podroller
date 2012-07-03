@@ -203,8 +203,10 @@ module.exports = class Core
     
     loadPreroll: (key,req,cb) ->
         # no preroll for head requests
-        cb?() if req.method == "HEAD"
-        
+        if req.method == "HEAD"
+            cb?() 
+            return true
+
         count = @_counter++
         
         # short-circuit if we're missing any options
