@@ -174,11 +174,11 @@ module.exports = class Core
                 
             console.log "requested start, end is", requestStart, requestEnd
             
-            # If rangeVals has two numbers, then check if they
+            # If rangeVals has two numbers > 0, then check if they
             # are valid and within the file size
-            if _u.isNumber(requestStart) and _u.isNumber(requestEnd)
-                rangeStart = if (requestStart >= fstart && requestStart < fend) then requestStart else fstart
-                rangeEnd = if (requestEnd > fstart && requestEnd <= fend) then requestEnd else fend
+            if (requestStart >= fstart) and (requestEnd > fstart)
+                rangeStart = if (requestStart < fend) then requestStart else fstart
+                rangeEnd = if (requestEnd <= fend) then requestEnd else fend
                 
                 # Request is for a range
                 rangeRequest = true
