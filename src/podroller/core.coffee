@@ -147,22 +147,51 @@ module.exports = class Core
         @loadPreroll stream_key, req, (predata = null) =>
             # compute our final size
             fsize = (id3?.length||0) + (predata?.length||0) + size
+            fstart = 0
+            fend = fsize - 1
             
             console.log "id3 length is ", id3?.length||0
             
             @listeners++
-                        
+
+            # Check if range request
+            # False by default
+            rangeRequest = false
+            
+            # Is the range header a string?
+            rangeStr = req.headers.range
+            
+            # Is the range header formatted properly?
+            if _u.isString rangeStr
+                rangeVals = rangeStr.match(/bytes=(.+)-(.+)?/)
+
+            # If both of the above are true, then check if the start and end values
+            # are valid and within the file size
+            if !_u.isUndefined rangeStr and !_u.isNull rangeVals
+                rangeStart = _u.isNumber(rangeVals[1]) && rangeVals[1] >= fstart && rangeVals[1] < fend ? rangeVals[1] - 0 : fstart
+                rangeEnd = _u.isNumber(rangeVals[2]) && rangeVals[2] > fstart && rangeVals[2] <= fend ? rangeVals[2] - 0 : fend
+                rangeRequest = true
+
+
+            # What is the actual length of content being sent back?
+            length = rangeRequest ? (rangeEnd - rangeStart) + 1 : fsize
+
             # send out headers
             headers = 
                 "Content-Type":         "audio/mpeg",
                 "Connection":           "close",
                 "Transfer-Encoding":    "identity",
-                "Content-Length":       fsize
+                "Content-Length":       length
+
+            if rangeRequest
+                headers["Status"] = "206 Partial Content"
+                headers["Accept-Ranges"] = "bytes"
+                headers["Content-Range"] = "bytes #{rangeStart}-#{rangeEnd}/#{fsize}"
+                
                 
             console.log "final size should be ", fsize
-            
             console.log "request method is ", req.method
-            
+
             res.writeHead 200, headers
             
             if req.method == "HEAD"
