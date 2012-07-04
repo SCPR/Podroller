@@ -149,7 +149,8 @@ module.exports = class Core
             fsize = (id3?.length||0) + (predata?.length||0) + size
             fstart = 0
             fend = fsize - 1
-            
+            console.log "fsize, fstart, fend is", fsize, fstart, fend
+
             console.log "id3 length is ", id3?.length||0
             
             @listeners++
@@ -159,22 +160,28 @@ module.exports = class Core
             rangeRequest = false
             
             # Is the range header a string?
-            rangeStr = req.headers.range
-            
-            # Is the range header formatted properly?
+            rangeStr = if _u.isString(req.headers.range) then req.headers.range else undefined
+            console.log "rangeStr is", rangeStr
+
+            # Get the requested start and end
             if _u.isString rangeStr
                 rangeVals = rangeStr.match(/bytes=(.+)-(.+)?/)
-
-            # If both of the above are true, then check if the start and end values
+                requestStart = rangeVals[1]
+                requestEnd = rangeVals[2]
+                
+            console.log "requested start, end is", requestStart, requestEnd
+            
+            # If rangeVals has two numbers, then check if they
             # are valid and within the file size
-            if !_u.isUndefined rangeStr and !_u.isNull rangeVals
-                rangeStart = _u.isNumber(rangeVals[1]) && rangeVals[1] >= fstart && rangeVals[1] < fend ? rangeVals[1] - 0 : fstart
-                rangeEnd = _u.isNumber(rangeVals[2]) && rangeVals[2] > fstart && rangeVals[2] <= fend ? rangeVals[2] - 0 : fend
+            if _u.isNumber requestStart and _u.isNumber requestEnd
+                rangeStart = if (requestStart >= fstart && requestStart < fend) then requestStart else fstart
+                rangeEnd = if (requestEnd > fstart && requestEnd <= fend) then requestEnd else fend
+                
+                # Request is for a range
                 rangeRequest = true
 
-
             # What is the actual length of content being sent back?
-            length = rangeRequest ? (rangeEnd - rangeStart) + 1 : fsize
+            length = if rangeRequest then (rangeEnd - rangeStart + 1) else fsize
 
             # send out headers
             headers = 
@@ -191,6 +198,7 @@ module.exports = class Core
                 
             console.log "final size should be ", fsize
             console.log "request method is ", req.method
+            console.log "headers are", headers
 
             res.writeHead 200, headers
             
