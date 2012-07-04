@@ -145,6 +145,7 @@ module.exports = class Core
             return false
         
         @loadPreroll stream_key, req, (predata = null) =>
+            console.log "url is", req.url
             # compute our final size
             fsize = (id3?.length||0) + (predata?.length||0) + size
             fstart = 0
