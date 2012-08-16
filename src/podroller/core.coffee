@@ -166,27 +166,25 @@ module.exports = class Core
 
             # Get the requested start and end
             if _u.isString rangeStr
-                rangeVals = rangeStr.match(/bytes=(.+)-(.+)?/)
+                rangeVals = rangeStr.match(/bytes ?= ?(\d+)-(\d+)?/)
                 
-                # Force into integers
-                requestStart = rangeVals[1] - 0
-                requestEnd = rangeVals[2] - 0
+                if rangeVals
+                    # Request is for a range
+                    rangeRequest = true
+                    
+                    # Force into integers
+                    requestStart    = rangeVals[1] - 0
+                    requestEnd      = rangeVals[2] - 0
                 
-            console.log "requested start, end is", requestStart, requestEnd
+                    console.log "requested start, end is", requestStart, requestEnd
+       
+                    rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
+                    rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
+                    console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
             
-            # If rangeVals has two numbers > 0, then check if they
-            # are valid and within the file size
-            if (requestStart >= fstart) and (requestEnd > fstart)
-                rangeStart = if (requestStart < fend) then requestStart else fstart
-                rangeEnd = if (requestEnd <= fend) then requestEnd else fend
-                
-                # Request is for a range
-                rangeRequest = true
-            
-            console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
-            # What is the actual length of content being sent back?
-            length = if rangeRequest then (rangeEnd - rangeStart + 1) else fsize
-            console.log "actual length is", length
+                    # What is the actual length of content being sent back?
+                    length = if rangeRequest then (rangeEnd - rangeStart + 1) else fsize
+                    console.log "actual length is", length
 
             # send out headers
             headers = 
@@ -196,16 +194,17 @@ module.exports = class Core
                 "Content-Length":       length
 
             if rangeRequest
-                headers["Status"] = "206 Partial Content"
+                headers["Cache-Control"] = "no-cache"
                 headers["Accept-Ranges"] = "bytes"
                 headers["Content-Range"] = "bytes #{rangeStart}-#{rangeEnd}/#{fsize}"
-                
+                res.writeHead 206, headers
+            else
+                res.writeHead 200, headers
+    
                 
             console.log "request method is ", req.method
             console.log "headers are", headers
 
-            res.writeHead 200, headers
-            
             if req.method == "HEAD"
                 res.end()
             else
