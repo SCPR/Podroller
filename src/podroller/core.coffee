@@ -146,10 +146,12 @@ module.exports = class Core
         
         @loadPreroll stream_key, req, (predata = null) =>
             console.log "url is", req.url
+            console.log "request method is ", req.method
+
             # compute our final size
-            fsize = (id3?.length||0) + (predata?.length||0) + size
-            fstart = 0
-            fend = fsize - 1
+            fsize   = (id3?.length||0) + (predata?.length||0) + size
+            fstart  = 0
+            fend    = fsize - 1
             console.log "fsize, fstart, fend is", fsize, fstart, fend
 
             console.log "id3 length is ", id3?.length||0
@@ -159,7 +161,8 @@ module.exports = class Core
             # Check if range request
             # False by default
             rangeRequest = false
-            
+            length       = fsize
+
             # Is the range header a string?
             rangeStr = if _u.isString(req.headers.range) then req.headers.range else undefined
             console.log "rangeStr is", rangeStr
@@ -171,6 +174,7 @@ module.exports = class Core
                 if rangeVals
                     # Request is for a range
                     rangeRequest = true
+                    length       = (rangeEnd - rangeStart + 1)
                     
                     # Force into integers
                     requestStart    = rangeVals[1] - 0
@@ -181,10 +185,9 @@ module.exports = class Core
                     rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
                     rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
-            
-                    # What is the actual length of content being sent back?
-                    length = if rangeRequest then (rangeEnd - rangeStart + 1) else fsize
-                    console.log "actual length is", length
+                                
+            # What is the actual length of content being sent back?
+            console.log "actual length is", length
 
             # send out headers
             headers = 
@@ -200,10 +203,8 @@ module.exports = class Core
                 res.writeHead 206, headers
             else
                 res.writeHead 200, headers
-    
-                
-            console.log "request method is ", req.method
-            console.log "headers are", headers
+                    
+            console.log "response headers are", headers
 
             if req.method == "HEAD"
                 res.end()
