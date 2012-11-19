@@ -174,18 +174,19 @@ module.exports = class Core
                 if rangeVals
                     # Request is for a range
                     rangeRequest = true
-                    length       = (rangeEnd - rangeStart + 1)
                     
                     # Force into integers
                     requestStart    = rangeVals[1] - 0
                     requestEnd      = rangeVals[2] - 0
-                
+                    
                     console.log "requested start, end is", requestStart, requestEnd
-       
+                    
                     rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
                     rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
-                                
+                    
+                    length = (rangeEnd - rangeStart + 1)
+                    
             # What is the actual length of content being sent back?
             console.log "actual length is", length
 
