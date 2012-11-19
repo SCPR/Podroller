@@ -1,12 +1,12 @@
 {
-	"podroller": {
-		"port":			8020,
-		"log":			"/tmp/podroller.log",
-		"audio_dir":	"/Users/eric/projects/Podroller/audio",
-		"preroll": {
-			"server": 	"preroller.dev",
-			"key": 		"podcast",
-			"path":		"/p"
-		}
-	}
+    "podroller": {
+        "port":         8020,
+        "log":          "/tmp/podroller.log",
+        "audio_dir":    "/Users/bryan/projects/Podroller/audio",
+        "preroll": {
+            "server":   "audiobox.dev",
+            "key":      "podcast",
+            "path":     "/p"
+        }
+    }
 }
