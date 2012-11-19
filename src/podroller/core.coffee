@@ -176,8 +176,8 @@ module.exports = class Core
                     rangeRequest = true
                     
                     # Force into integers
-                    requestStart    = rangeVals[1] - 0
-                    requestEnd      = rangeVals[2] - 0
+                    requestStart    = rangeVals[1]
+                    requestEnd      = rangeVals[2]
                     
                     console.log "requested start, end is", requestStart, requestEnd
                     
