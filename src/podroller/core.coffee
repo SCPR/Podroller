@@ -176,8 +176,8 @@ module.exports = class Core
                     rangeRequest = true
                     
                     # Force into integers
-                    requestStart    = rangeVals[1]
-                    requestEnd      = rangeVals[2]
+                    requestStart    = rangeVals[1] - 0
+                    requestEnd      = rangeVals[2] - 0 or undefined
                     
                     console.log "requested start, end is", requestStart, requestEnd
                     
@@ -185,7 +185,7 @@ module.exports = class Core
                     rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
                     
-                    length = (rangeEnd - rangeStart + 1)
+                    length = (rangeEnd - rangeStart)
                     
             # What is the actual length of content being sent back?
             console.log "actual length is", length
@@ -218,8 +218,16 @@ module.exports = class Core
             
                 # now set up our file read as a stream
                 console.log "creating read stream. #{@listeners} active downloads."
-                rstream = fs.createReadStream filename, bufferSize:256*1024
-
+                readStreamOpts = bufferSize: 256*1024
+                
+                # If this is a range request, only deliver that range of bytes
+                if rangeRequest
+                    console.log "Sending byte range #{rangeStart}-#{rangeEnd}"
+                    readStreamOpts['start'] = rangeStart
+                    readStreamOpts['end']   = rangeEnd
+                
+                console.log "read stream opts are", readStreamOpts
+                rstream = fs.createReadStream filename, readStreamOpts
                 rstream.pipe res, end:false
                             
                 rstream.on "end", => 
