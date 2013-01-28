@@ -181,7 +181,7 @@ module.exports = class Core
                     
                     console.log "requested start, end is", requestStart, requestEnd
                     
-                    rangeStart  = if (requestStart  <= fend)     then requestStart   else fstart
+                    rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
                     rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
                     
