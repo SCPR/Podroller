@@ -150,9 +150,8 @@ module.exports = class Core
 
             # compute our final size
             fsize   = (id3?.length||0) + (predata?.length||0) + size
-            fstart  = 0
             fend    = fsize - 1
-            console.log "fsize, fstart, fend is", fsize, fstart, fend
+            console.log "fsize is", fsize
 
             console.log "id3 length is ", id3?.length||0
             
@@ -181,8 +180,8 @@ module.exports = class Core
                     
                     console.log "requested start, end is", requestStart, requestEnd
                     
-                    rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
-                    rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
+                    rangeStart  = if (requestStart  <= fend) then requestStart else 0
+                    rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
                     
                     length = (rangeEnd - rangeStart)
@@ -232,12 +231,12 @@ module.exports = class Core
                 
                 rstream.on "end", => 
                     # got to the end of the file.  close our response
-                    console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    console.log "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     res.end()
             
                 req.connection.on "end", =>
                     # connection aborted.  destroy our stream
-                    console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    console.log "(connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     rstream?.destroy() if rstream?.readable
                 
                 req.connection.on "close", => 
