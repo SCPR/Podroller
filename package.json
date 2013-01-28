@@ -8,7 +8,8 @@
   "repository": {"type": "git", "url": "http://github.com/SCPR/Podroller.git"},
   "main": "./src/podroller/core",
   "dependencies": {
-    "express": "3.0.0alpha1",
+    "coffee-script": "1.4.0",
+    "express": "3.1.0",
     "fluent-ffmpeg": "0.3.0",
     "nconf": "0.5.1",
     "strtok": "0.1.1",
