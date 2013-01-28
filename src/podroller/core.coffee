@@ -184,7 +184,7 @@ module.exports = class Core
                     rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
                     
-                    length = (rangeEnd - rangeStart)
+                    length = (rangeEnd - rangeStart) + 1
                     
             # What is the actual length of content being sent back?
             console.log "actual length is", length
