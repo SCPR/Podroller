@@ -181,7 +181,7 @@ module.exports = class Core
                     
                     console.log "requested start, end is", requestStart, requestEnd
                     
-                    rangeStart  = if (requestStart  < fend)     then requestStart   else fstart
+                    rangeStart  = if (requestStart  <= fend)     then requestStart   else fstart
                     rangeEnd    = if (requestEnd    <= fend)    then requestEnd     else fend
                     console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
                     
@@ -229,7 +229,7 @@ module.exports = class Core
                 console.log "read stream opts are", readStreamOpts
                 rstream = fs.createReadStream filename, readStreamOpts
                 rstream.pipe res, end:false
-                            
+                
                 rstream.on "end", => 
                     # got to the end of the file.  close our response
                     console.log "wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
