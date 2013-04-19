@@ -194,11 +194,11 @@ module.exports = class Core
                 "Content-Type":         "audio/mpeg",
                 "Connection":           "close",
                 "Transfer-Encoding":    "identity",
-                "Content-Length":       length
+                "Content-Length":       length,
+                "Accept-Ranges":        "bytes"
 
             if rangeRequest
                 headers["Cache-Control"] = "no-cache"
-                headers["Accept-Ranges"] = "bytes"
                 headers["Content-Range"] = "bytes #{rangeStart}-#{rangeEnd}/#{fsize}"
                 res.writeHead 206, headers
             else
