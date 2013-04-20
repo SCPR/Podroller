@@ -55,7 +55,7 @@ module.exports = class Core
             # need to start a process to quit when existing connections disconnect
             @_shutdownTimeout = setInterval =>
                 # have we used up the grace period yet?
-                force_shut = if (new Date).getTime() > @_shutdownMaxTime then true else false                
+                force_shut = if (new Date).getTime() > @_shutdownMaxTime then true else false
                     
                 if @listeners == 0 || force_shut
                     # everyone's out...  go ahead and shut down
@@ -316,6 +316,3 @@ module.exports = class Core
 
         conn.once "close", conn_pre_abort
         conn.once "end", conn_pre_abort
-
-                            
-        
