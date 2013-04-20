@@ -256,10 +256,10 @@ module.exports = class Core
         # -- make a request to the preroll server -- #
         
         console.log "making a preroll request"
-        
+
         opts = 
             host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers['Consistent-Preroll']?].join("/")
+            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers['consistent-preroll']?].join("/")
         
         conn = req.connection
         
