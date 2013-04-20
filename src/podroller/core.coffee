@@ -259,7 +259,7 @@ module.exports = class Core
         
         opts = 
             host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers.static?].join("/")
+            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers.consistentPreroll?].join("/")
         
         conn = req.connection
         
