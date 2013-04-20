@@ -26,11 +26,9 @@ module.exports = class Core
             
         # -- set up cache storage -- #
         
-        @key_cache = {}
-        
-        @listeners = 0
-        
-        @_counter = 0
+        @key_cache  = {}
+        @listeners  = 0
+        @_counter   = 0
         
         # -- set up a server -- #
         
@@ -112,7 +110,7 @@ module.exports = class Core
         else
             # didn't match prefix...
             next()
-                            
+        
     #----------
     
     checkForID3: (filename,cb) =>
@@ -122,16 +120,12 @@ module.exports = class Core
         
         parser.on "id3v2", (buf) =>
             # got an ID3
-            #console.log "check got an ID3!", buf
-            #rstream.destroy()
             cb?(buf)
             
         parser.on "header", (h,buf) =>
             # got a frame
-            #console.log "check got a header!"
-            #rstream.destroy()
             cb?()
-            
+        
         # we only read the first 4k
         rstream = fs.createReadStream filename, bufferSize:256*1024, start:0, end:4096
         rstream.pipe parser, end:false
@@ -206,15 +200,15 @@ module.exports = class Core
                     
             console.log "response headers are", headers
 
+            # if we have an id3, write that
+            res.write id3 if id3
+            
+            # write the preroll
+            res.write predata if predata
+
             if req.method == "HEAD"
                 res.end()
             else
-                # if we have an id3, write that
-                res.write id3 if id3
-                                
-                # write the preroll
-                res.write predata if predata
-            
                 # now set up our file read as a stream
                 console.log "creating read stream. #{@listeners} active downloads."
                 readStreamOpts = bufferSize: 256*1024
@@ -251,11 +245,6 @@ module.exports = class Core
     #----------
     
     loadPreroll: (key,req,cb) ->
-        # no preroll for head requests
-        if req.method == "HEAD"
-            cb?() 
-            return true
-
         count = @_counter++
         
         # short-circuit if we're missing any options
@@ -270,7 +259,7 @@ module.exports = class Core
         
         opts = 
             host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key].join("/")
+            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers.static?].join("/")
         
         conn = req.connection
         

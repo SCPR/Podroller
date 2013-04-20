@@ -20,19 +20,20 @@ module.exports = class MP3 extends Stream
         @setMaxListeners 0
         
         # set up status
-        @frameSize = -1
-        @beginning = true
-        @gotFF = false
-        @byteTwo = null
+        @frameSize  = -1
+        @beginning  = true
+        @gotFF      = false
+        @byteTwo    = null
+
         @frameHeader = if assumeOnTrack then true else null
         
         console.log "starting up with frameHeader of ", @frameHeader
         
-        @id3v2 = null
-        @_parsingId3v2 = false
-        @_finishingId3v2 = false
-        @_id3v2_1 = null
-        @_id3v2_2 = null
+        @id3v2              = null
+        @_parsingId3v2      = false
+        @_finishingId3v2    = false
+        @_id3v2_1           = null
+        @_id3v2_2           = null
         
         strtok.parse @, (v,cb) =>
             # -- initial request -- #
@@ -64,9 +65,9 @@ module.exports = class MP3 extends Stream
                        ((byte2 & 0x7f) << 14) |
                        ((byte1 & 0x7f) << 21)
 
-                @_parsingId3v2 = false;
-                @_finishingId3v2 = true;
-                @_id3v2_2 = v;
+                @_parsingId3v2 = false
+                @_finishingId3v2 = true
+                @_id3v2_2 = v
                 return new strtok.BufferType @id3v2.length
                 
             if @_finishingId3v2
@@ -76,7 +77,7 @@ module.exports = class MP3 extends Stream
 
                 @_finishingId3v2 = false
 
-                return MPEG_HEADER;
+                return MPEG_HEADER
                 
             # -- frame header -- #
             
@@ -84,7 +85,7 @@ module.exports = class MP3 extends Stream
                 # we're on-schedule now... we've had a valid frame.
                 # buffer should be four bytes
                 tag = v.toString 'ascii', 0, 3
-                                                
+                
                 if tag == 'ID3'
                     # parse ID3 tag
                     console.log "got an ID3"
@@ -139,13 +140,13 @@ module.exports = class MP3 extends Stream
                     
                 # valid header...  we're on schedule now
                 @gotFF = false
-                @byteTwo = null                    
+                @byteTwo = null
                 @beginning = false
                 
                 @frameHeader = h
                 @emit "header", buf, h
                 @frameSize = @frameHeader.frameSize
-                                    
+                
                 if @frameSize == 1
                     # problem...  just start over
                     console.log "Invalid frame header: ", h
@@ -164,7 +165,7 @@ module.exports = class MP3 extends Stream
                 else
                     @gotFF = false
                 
-            if @frameSize == -1 && !@gotFF                
+            if @frameSize == -1 && !@gotFF
                 if v[0] == 0xFF
                     # possible start of frame header. need next byte to know more
                     @gotFF = true
@@ -179,7 +180,7 @@ module.exports = class MP3 extends Stream
             
             @frameSize = -1
             return MPEG_HEADER
-                
+            
     
     write: (chunk) ->
         @emit "data", chunk
@@ -195,7 +196,7 @@ module.exports = class MP3 extends Stream
     buffer_concat: (bufs) ->
         buffer = null
         length = 0
-        index = 0
+        index  = 0
 
         if !Array.isArray(bufs)
             bufs = Array.prototype.slice.call(arguments);
