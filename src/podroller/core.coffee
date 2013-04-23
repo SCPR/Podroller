@@ -68,8 +68,8 @@ module.exports = class Core
     
     podRouter: (req,res,next) ->
         # if we take prefix away from req.url, does it match an audio file?
-        match = ///^#{@options.prefix}(.*)///.exec req.url
-        
+        match = ///^#{@options.prefix}(.*)///.exec req.path
+
         if match?[1]
             filename = path.join(@options.audio_dir,match[1]) 
             fs.stat filename, (err,stats) =>
@@ -259,8 +259,8 @@ module.exports = class Core
 
         opts = 
             host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key,"?static=1" if req.headers['consistent-preroll']?].join("/")
-        
+            path:       [@options.preroll.path,@options.preroll.key,key,"?consistentPreroll" if req.query.match(/consistentPreroll/)].join("/")
+
         conn = req.connection
         
         console.log "firing preroll request", count
