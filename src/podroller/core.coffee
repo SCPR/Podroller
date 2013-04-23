@@ -5,6 +5,7 @@ fs = require "fs"
 ffmpegmeta = require('fluent-ffmpeg').Metadata
 http = require "http"
 Parser = require "./mp3parser"
+qs = require 'qs'
 
 module.exports = class Core
     DefaultOptions:
@@ -257,9 +258,12 @@ module.exports = class Core
         
         console.log "making a preroll request"
 
+        # Pass along any query string to Preroller
+        query = qs.stringify(req.query)
+
         opts = 
             host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key,"?consistentPreroll" if req.query.match(/consistentPreroll/)].join("/")
+            path:       [@options.preroll.path,@options.preroll.key,key,"?"+query].join("/")
 
         conn = req.connection
         
