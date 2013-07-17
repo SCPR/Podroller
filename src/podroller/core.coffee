@@ -67,41 +67,64 @@ module.exports = class Core
     podRouter: (req, res, next) ->
         # if we take prefix away from req.url, does it match an audio file?
         match = ///^#{@options.prefix}(.*)///.exec req.path
-        next() and return unless match?[1]
 
-        filename = path.join(@options.audio_dir,match[1]) 
-        fs.stat filename, (err,stats) =>
+        if !match?[1]
+            next()
+            return false
+
+
+        filename = path.join(@options.audio_dir, match[1]) 
+        fs.stat filename, (err, stats) =>
             # if there was a stat error or this isn't a file, move on 
             if err || !stats.isFile()
                 next()
                 return true
 
-            # is this a file we already know about? if so, has it not been changed?
-            if @key_cache[ filename ] && @key_cache[filename]?.mtime == stats.mtime.getTime() && @key_cache[filename].stream_key
-                # we're good.  use the cached stream key for preroll, then send our file
-                @streamPodcast req, res, filename, stats.size, @key_cache[filename].stream_key, @key_cache[filename].id3
+            # is this a file we already know about?
+            # if so, has it not been changed?
+            if @key_cache[ filename ] &&
+            @key_cache[filename]?.mtime == stats.mtime.getTime() &&
+            @key_cache[filename].stream_key
+                # we're good.  use the cached stream key 
+                # for preroll, then send our file
+                @streamPodcast req, res, filename, stats.size,
+                    @key_cache[filename].stream_key,
+                    @key_cache[filename].id3
             else
                 # never seen this one, or it's changed since we saw it
-
                 # -- validate it and get its audio settings -- #
                 ffmpegmeta.get filename, (meta) =>
-                    if meta
-                        # stash our stream key and mtime
-                        key = [meta.audio.codec,meta.audio.sample_rate,meta.audio.bitrate,(if meta.audio.channels == 2 then "s" else "m")].join("-")
-                        mtime = stats.mtime.getTime()
+                    if !meta
+                        @res.writeHead 404,
+                            "Content-Type": "text/plain",
+                            "Connection"  : "close"
 
-                        # -- now look for ID3 tag -- #
-                        # we do this by streaming the file into our parser, 
-                        # and seeing which comes first: an ID3 tag or an 
-                        # mp3 header.  Once we hit first audio, we assume 
-                        # no tag and move on.  we cache any tag we get to 
-                        # deliver at the head of the combined file
-                        @checkForID3 filename, (id3) =>
-                            @key_cache[ filename ] = mtime:mtime, stream_key:key, id3:id3
-                            @streamPodcast req, res, filename, stats.size, key, id3
-                    else
-                        @res.writeHead 404, "Content-Type":"text/plain", "Connection":"close"
                         @res.end("File not found.")
+                        return false
+
+                    # stash our stream key and mtime
+                    key = [
+                        meta.audio.codec,
+                        meta.audio.sample_rate,
+                        meta.audio.bitrate,
+                        if meta.audio.channels == 2 then "s" else "m"
+                    ].join("-")
+
+                    mtime = stats.mtime.getTime()
+
+                    # look for ID3 tag
+                    # we do this by streaming the file into our parser, 
+                    # and seeing which comes first: an ID3 tag or an 
+                    # mp3 header.  Once we hit first audio, we assume 
+                    # no tag and move on.  we cache any tag we get to 
+                    # deliver at the head of the combined file
+                    @checkForID3 filename, (id3) =>
+                        @key_cache[filename] =
+                            mtime      : mtime
+                            stream_key : key
+                            id3        : id3
+
+                        @streamPodcast(req, res, filename, stats.size, key, id3)
 
 
 
@@ -119,8 +142,12 @@ module.exports = class Core
             cb?()
 
         # we only read the first 4k
-        rstream = fs.createReadStream filename, bufferSize:256*1024, start:0, end:4096
-        rstream.pipe parser, end:false
+        rstream = fs.createReadStream filename,
+            bufferSize : 256*1024
+            start      : 0
+            end        : 4096
+
+        rstream.pipe parser, end: false
 
         rstream.on "end", => parser.end()
 
