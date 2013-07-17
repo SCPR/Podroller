@@ -137,7 +137,7 @@ module.exports = class Core
             # got an ID3
             cb?(buf)
 
-        parser.on "header", (h,buf) =>
+        parser.on "header", (h, buf) =>
             # got a frame
             cb?()
 
@@ -148,7 +148,6 @@ module.exports = class Core
             end        : 4096
 
         rstream.pipe parser, end: false
-
         rstream.on "end", => parser.end()
 
 
