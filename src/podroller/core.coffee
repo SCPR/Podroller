@@ -34,7 +34,7 @@ module.exports = class Core
         # -- set up a server -- #
         console.log "config is ", @options
         @app = express()
-        @app.use (req,res,next) => @podRouter(req,res,next)
+        @app.use (req, res, next) => @podRouter(req, res, next)
         @server = @app.listen @options.port
 
         # -- set up a shutdown handler -- #
@@ -68,10 +68,7 @@ module.exports = class Core
         # if we take prefix away from req.url, does it match an audio file?
         match = ///^#{@options.prefix}(.*)///.exec req.path
 
-        if !match?[1]
-            next()
-            return false
-
+        return false if !match?[1]
 
         filename = path.join(@options.audio_dir, match[1]) 
         fs.stat filename, (err, stats) =>
@@ -82,7 +79,7 @@ module.exports = class Core
 
             # is this a file we already know about?
             # if so, has it not been changed?
-            if @key_cache[ filename ] &&
+            if @key_cache[filename] &&
             @key_cache[filename]?.mtime == stats.mtime.getTime() &&
             @key_cache[filename].stream_key
                 # we're good.  use the cached stream key 

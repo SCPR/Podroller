@@ -29,8 +29,6 @@ module.exports = class MP3 extends Stream
 
         @frameHeader = if assumeOnTrack then true else null
 
-        console.log "starting up with frameHeader of ", @frameHeader
-
         @id3v2              = null
         @_parsingId3v2      = false
         @_finishingId3v2    = false
@@ -38,6 +36,7 @@ module.exports = class MP3 extends Stream
         @_id3v2_2           = null
 
         strtok.parse @, (v,cb) =>
+        strtok.parse @, (v, cb) =>
             # -- initial request -- #
             if v == undefined
                 # we need to examine each byte until we get a FF
@@ -47,27 +46,27 @@ module.exports = class MP3 extends Stream
             if @_parsingId3v2
                 # we'll already have @id3v2 started with versionMajor and 
                 # our first byte in @_id3v2_1
-
                 @id3v2.versionMinor = v[0]
-                @id3v2.flags = v[1]
+                @id3v2.flags        = v[1]
 
                 # calculate the length
                 # from node-id3
-                offset = 2;
-                byte1 = v[offset]
-                byte2 = v[offset + 1]
-                byte3 = v[offset + 2]
-                byte4 = v[offset + 3]
+                offset  = 2
+                byte1   = v[offset]
+                byte2   = v[offset + 1]
+                byte3   = v[offset + 2]
+                byte4   = v[offset + 3]
 
                 @id3v2.length =
-                       byte4 & 0x7f           |
-                       ((byte3 & 0x7f) << 7)  |
-                       ((byte2 & 0x7f) << 14) |
-                       ((byte1 & 0x7f) << 21)
+                   byte4   & 0x7f         |
+                   ((byte3 & 0x7f) << 7)  |
+                   ((byte2 & 0x7f) << 14) |
+                   ((byte1 & 0x7f) << 21)
 
-                @_parsingId3v2 = false
-                @_finishingId3v2 = true
-                @_id3v2_2 = v
+                @_parsingId3v2      = false
+                @_finishingId3v2    = true
+                @_id3v2_2           = v
+
                 return new strtok.BufferType @id3v2.length
 
             if @_finishingId3v2
@@ -89,9 +88,9 @@ module.exports = class MP3 extends Stream
                 if tag == 'ID3'
                     # parse ID3 tag
                     console.log "got an ID3"
-                    @_parsingId3v2 = true
-                    @id3v2 = versionMajor:v[3]
-                    @_id3v2_1 = v
+                    @_parsingId3v2  = true
+                    @id3v2          = versionMajor: v[3]
+                    @_id3v2_1       = v
 
                     return REST_OF_ID3V2_HEADER
 
@@ -118,15 +117,15 @@ module.exports = class MP3 extends Stream
                         console.log "Invalid frame header: ", h
                         return FIRST_BYTE
                     else
-                        return new strtok.BufferType(@frameSize - MPEG_HEADER_LENGTH);
+                        return new strtok.BufferType(@frameSize - MPEG_HEADER_LENGTH)
 
             # -- first header -- #
             if @gotFF and @byteTwo
-                buf = new Buffer(4)
-                buf[0] = 0xFF
-                buf[1] = @byteTwo
-                buf[2] = v[0]
-                buf[3] = v[1]
+                buf     = new Buffer(4)
+                buf[0]  = 0xFF
+                buf[1]  = @byteTwo
+                buf[2]  = v[0]
+                buf[3]  = v[1]
 
                 try
                     h = parseFrame(buf)
