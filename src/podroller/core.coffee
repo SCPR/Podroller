@@ -32,7 +32,7 @@ module.exports = class Core
         @_counter   = 0
 
         # -- set up a server -- #
-        console.log "config is ", @options
+        console.debug "config is ", @options
         @app = express()
         @app.use (req, res, next) => @podRouter(req, res, next)
         @server = @app.listen @options.port
@@ -159,9 +159,9 @@ module.exports = class Core
             # compute our final size
             fsize   = (id3?.length||0) + (predata?.length||0) + size
             fend    = fsize - 1
-            console.log "fsize is", fsize
 
-            console.log "id3 length is ", id3?.length||0
+            console.debug req.method, req.url
+            console.debug "size:", fsize
 
             @listeners++
 
@@ -195,7 +195,7 @@ module.exports = class Core
                     length = (rangeEnd - rangeStart) + 1
 
             # What is the actual length of content being sent back?
-            console.log "actual length is", length
+            console.debug "actual length is", length
 
             # send out headers
             headers = 
@@ -212,7 +212,7 @@ module.exports = class Core
             else
                 res.writeHead 200, headers
 
-            console.log "response headers are", headers
+            console.debug "response headers are", headers
 
             # if we have an id3, write that
             res.write id3 if id3
@@ -276,9 +276,9 @@ module.exports = class Core
 
         conn = req.connection
 
-        console.log "firing preroll request", count
+        console.debug "firing preroll request", count
         req = http.get opts, (rres) =>
-            console.log "got preroll response ", count
+            console.debug "got preroll response ", count
             if rres.statusCode == 200
                 # collect preroll and return it so length can be computed
                 pre_data = new Buffer(0)
@@ -303,17 +303,17 @@ module.exports = class Core
                 return true
 
         req.on "socket", (sock) =>
-            console.log "socket granted for ", count
+            console.debug "socket granted for ", count
 
         req.on "error", (err) =>
-            console.log "got a request error for ", count, err
+            console.debug "got a request error for ", count, err
 
         # attach a close listener to the response, to be fired if it gets 
         # shut down and we should abort the request
 
         conn_pre_abort = => 
             if conn.destroyed
-                console.log "aborting preroll ", count
+                console.debug "aborting preroll ", count
                 req.abort()
 
         conn.once "close", conn_pre_abort

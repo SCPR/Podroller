@@ -86,7 +86,7 @@ module.exports = class MP3 extends Stream
 
                 if tag == 'ID3'
                     # parse ID3 tag
-                    console.log "got an ID3"
+                    console.debug "got an ID3"
                     @_parsingId3v2  = true
                     @id3v2          = versionMajor: v[3]
                     @_id3v2_1       = v
@@ -95,7 +95,7 @@ module.exports = class MP3 extends Stream
 
                 else if tag == 'TAG'
                     # parse ID3v2 tag
-                    console.log "got a TAG"
+                    console.debug "got a TAG"
                     process.exit(1)
 
                 else
@@ -103,7 +103,7 @@ module.exports = class MP3 extends Stream
                         h = parseFrame(v)
                     catch e
                         # uh oh...  bad news
-                        console.log "invalid header... ", v, tag, @frameHeader
+                        console.debug "invalid header... ", v, tag, @frameHeader
                         @frameHeader = null
                         return FIRST_BYTE
 
@@ -113,7 +113,7 @@ module.exports = class MP3 extends Stream
 
                     if @frameSize == 1
                         # problem...  just start over
-                        console.log "Invalid frame header: ", h
+                        console.debug "Invalid frame header: ", h
                         return FIRST_BYTE
                     else
                         return new strtok.BufferType(@frameSize - MPEG_HEADER_LENGTH)
@@ -130,7 +130,7 @@ module.exports = class MP3 extends Stream
                     h = parseFrame(buf)
                 catch e
                     # invalid header...  chuck everything and try again
-                    console.log "chucking invalid try at header: ", buf
+                    console.debug "chucking invalid try at header: ", buf
                     @gotFF = false
                     @byteTwo = null
                     return FIRST_BYTE
@@ -146,10 +146,10 @@ module.exports = class MP3 extends Stream
 
                 if @frameSize == 1
                     # problem...  just start over
-                    console.log "Invalid frame header: ", h
+                    console.debug "Invalid frame header: ", h
                     return FIRST_BYTE
                 else
-                    console.log "On-tracking with frame of: ", @frameSize - MPEG_HEADER_LENGTH
+                    console.debug "On-tracking with frame of: ", @frameSize - MPEG_HEADER_LENGTH
                     return new strtok.BufferType(@frameSize - MPEG_HEADER_LENGTH);
 
             if @gotFF
