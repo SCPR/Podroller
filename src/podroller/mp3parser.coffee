@@ -35,7 +35,6 @@ module.exports = class MP3 extends Stream
         @_id3v2_1           = null
         @_id3v2_2           = null
 
-        strtok.parse @, (v,cb) =>
         strtok.parse @, (v, cb) =>
             # -- initial request -- #
             if v == undefined
