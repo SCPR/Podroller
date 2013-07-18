@@ -1,13 +1,13 @@
 {
     "debug": true,
     "podroller": {
-        "port":         8020,
-        "log":          "/tmp/podroller.log",
-        "audio_dir":    "/Users/bryan/projects/Podroller/audio",
+        "port": 8020,
+        "log": "/tmp/podroller.log",
+        "audio_dir": "/Users/bryan/projects/Podroller/audio",
         "preroll": {
-            "server":   "audiobox.scprdev.org",
-            "key":      "podcast",
-            "path":     "/pre/p"
+            "server": "audiobox.scprdev.org",
+            "key": "podcast",
+            "path": "/pre/p"
         }
     }
 }
