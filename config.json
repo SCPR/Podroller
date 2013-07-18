@@ -1,4 +1,5 @@
 {
+    "debug": true,
     "podroller": {
         "port":         8020,
         "log":          "/tmp/podroller.log",

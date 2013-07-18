@@ -11,4 +11,11 @@ nconf.file( { file: nconf.get("config") || nconf.get("CONFIG") || "/etc/podrolle
 
 # -- launch our core -- #
 
+DEBUG = nconf.get("debug")
+
+console.debug = (messages...) ->
+    if DEBUG
+        console.log "DEBUG:", messages...
+
+
 core = new Podroller nconf.get("podroller")
