@@ -90,7 +90,7 @@ module.exports = class Core
             else
                 # never seen this one, or it's changed since we saw it
                 # -- validate it and get its audio settings -- #
-                ffmpegmeta.get filename, (meta) =>
+                new ffmpegmeta filename, (meta, err) =>
                     if !meta
                         @res.writeHead 404,
                             "Content-Type": "text/plain",
