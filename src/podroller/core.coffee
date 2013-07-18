@@ -152,47 +152,40 @@ module.exports = class Core
     streamPodcast: (req, res, filename, size, stream_key, id3) ->
         return false if req.connection.destroyed
 
-        @loadPreroll stream_key, req, (predata = null) =>
-            console.log "url is", req.url
-            console.log "request method is ", req.method
+        # Check if this is a range request
+        # False by default
+        rangeRequest = false
 
+        if _u.isString(req.headers.range)
+            rangeVals    = req.headers.range.match(/bytes ?= ?(\d+)-(\d+)?/)
+            rangeRequest = true
+
+
+        @loadPreroll stream_key, req, (predata = null) =>
             # compute our final size
+            # If this isn't a range request, then this info won't
+            # be changed.
+            # If it IS a range request, then "length" will get
+            # changed to be the chunk size.
             fsize   = (id3?.length||0) + (predata?.length||0) + size
             fend    = fsize - 1
+            length  = fsize
 
             console.debug req.method, req.url
             console.debug "size:", fsize
 
             @listeners++
 
-            # Check if range request
-            # False by default
-            rangeRequest = false
-            length       = fsize
+            if rangeRequest
+                # Get the requested start and end
+                # Force into integers
+                requestStart    = rangeVals[1] - 0
+                requestEnd      = rangeVals[2] - 0 or undefined
 
-            # Is the range header a string?
-            rangeStr = if _u.isString(req.headers.range) then req.headers.range else undefined
-            console.log "rangeStr is", rangeStr
-
-            # Get the requested start and end
-            if _u.isString rangeStr
-                rangeVals = rangeStr.match(/bytes ?= ?(\d+)-(\d+)?/)
-
-                if rangeVals
-                    # Request is for a range
-                    rangeRequest = true
-
-                    # Force into integers
-                    requestStart    = rangeVals[1] - 0
-                    requestEnd      = rangeVals[2] - 0 or undefined
-
-                    console.log "requested start, end is", requestStart, requestEnd
-
-                    rangeStart  = if (requestStart  <= fend) then requestStart else 0
-                    rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
-                    console.log "rangeStart, rangeEnd, rangeRequest is", rangeStart, rangeEnd, rangeRequest
-                    
-                    length = (rangeEnd - rangeStart) + 1
+                rangeStart  = if (requestStart  <= fend) then requestStart else 0
+                rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
+                
+                length = (rangeEnd - rangeStart) + 1
 
             # What is the actual length of content being sent back?
             console.debug "actual length is", length
@@ -214,47 +207,51 @@ module.exports = class Core
 
             console.debug "response headers are", headers
 
-            # if we have an id3, write that
-            res.write id3 if id3
-
-            # write the preroll
-            res.write predata if predata
-
+            # If this is a HEAD request, we don't need to 
+            # pipe the actual data to the client, so
+            # after setting all the headers, we're done.
             if req.method == "HEAD"
                 res.end()
-            else
-                # now set up our file read as a stream
-                console.log "creating read stream. #{@listeners} active downloads."
-                readStreamOpts = bufferSize: 256*1024
+                return true
 
-                # If this is a range request, only deliver that range of bytes
-                if rangeRequest
-                    console.log "Sending byte range #{rangeStart}-#{rangeEnd}"
-                    readStreamOpts['start'] = rangeStart
-                    readStreamOpts['end']   = rangeEnd
 
-                console.log "read stream opts are", readStreamOpts
-                rstream = fs.createReadStream filename, readStreamOpts
-                rstream.pipe res, end:false
+            # if we have an id3 or preroll, write them
+            res.write id3 if id3
+            res.write predata if predata
 
-                rstream.on "end", => 
-                    # got to the end of the file.  close our response
-                    console.log "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
-                    res.end()
 
-                req.connection.on "end", =>
-                    # connection aborted.  destroy our stream
-                    console.log "(connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
-                    rstream?.destroy() if rstream?.readable
+            # now set up our file read as a stream
+            console.debug "creating read stream. #{@listeners} active downloads."
+            readStreamOpts = bufferSize: 256*1024
 
-                req.connection.on "close", => 
-                    console.log "(conn close) in close. #{@listeners} active downloads."
-                    @listeners--
+            # If this is a range request, only deliver that range of bytes
+            if rangeRequest
+                console.debug "Sending byte range #{rangeStart}-#{rangeEnd}"
+                readStreamOpts['start'] = rangeStart
+                readStreamOpts['end']   = rangeEnd
 
-                req.connection.setTimeout 30*1000, =>
-                    # handle connection timeout
-                    res.end()
-                    rstream?.destroy() if rstream?.readable
+            console.debug "read stream opts are", readStreamOpts
+            rstream = fs.createReadStream filename, readStreamOpts
+            rstream.pipe res, end: false
+
+            rstream.on "end", => 
+                # got to the end of the file.  close our response
+                console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                res.end()
+
+            req.connection.on "end", =>
+                # connection aborted.  destroy our stream
+                console.debug "(connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                rstream?.destroy() if rstream?.readable
+
+            req.connection.on "close", => 
+                console.debug "(conn close) in close. #{@listeners} active downloads."
+                @listeners--
+
+            req.connection.setTimeout 30*1000, =>
+                # handle connection timeout
+                res.end()
+                rstream?.destroy() if rstream?.readable
 
 
 
