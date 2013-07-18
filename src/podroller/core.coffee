@@ -160,6 +160,11 @@ module.exports = class Core
             rangeVals    = req.headers.range.match(/bytes ?= ?(\d+)-(\d+)?/)
             rangeRequest = true
 
+            # Get the requested start and end
+            # Force into integers
+            requestStart    = rangeVals[1] - 0
+            requestEnd      = rangeVals[2] - 0 or undefined
+
 
         @loadPreroll stream_key, req, (predata = null) =>
             # compute our final size
@@ -177,14 +182,9 @@ module.exports = class Core
             @listeners++
 
             if rangeRequest
-                # Get the requested start and end
-                # Force into integers
-                requestStart    = rangeVals[1] - 0
-                requestEnd      = rangeVals[2] - 0 or undefined
-
                 rangeStart  = if (requestStart  <= fend) then requestStart else 0
                 rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
-                
+
                 length = (rangeEnd - rangeStart) + 1
 
             # What is the actual length of content being sent back?
@@ -215,20 +215,29 @@ module.exports = class Core
                 return true
 
 
-            # if we have an id3 or preroll, write them
-            res.write id3 if id3
-            res.write predata if predata
-
-
             # now set up our file read as a stream
             console.debug "creating read stream. #{@listeners} active downloads."
             readStreamOpts = bufferSize: 256*1024
+
 
             # If this is a range request, only deliver that range of bytes
             if rangeRequest
                 console.debug "Sending byte range #{rangeStart}-#{rangeEnd}"
                 readStreamOpts['start'] = rangeStart
                 readStreamOpts['end']   = rangeEnd
+
+            if !rangeRequest || rangeStart == 0
+                # if we have an id3 or preroll, write them
+                # We only want to do this if we're not doing a range request
+                # (i.e. requesting the whole file), OR if the rangeStart is 0
+                # (i.e. listener is at the beginning of the stream).
+                # Otherwise, every time someone seeks or lose connection or
+                # otherwise need to request another chunk of data, they'll
+                # get the preroll again.
+                res.write predata if predata
+
+            res.write id3 if id3
+
 
             console.debug "read stream opts are", readStreamOpts
             rstream = fs.createReadStream filename, readStreamOpts
