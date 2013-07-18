@@ -199,11 +199,11 @@ module.exports = class Core
 
             # send out headers
             headers = 
-                "Content-Type":         "audio/mpeg",
-                "Connection":           "close",
-                "Transfer-Encoding":    "identity",
-                "Content-Length":       length,
-                "Accept-Ranges":        "bytes"
+                "Content-Type"      : "audio/mpeg",
+                "Connection"        : "close",
+                "Transfer-Encoding" : "identity",
+                "Content-Length"    : length,
+                "Accept-Ranges"     : "bytes"
 
             if rangeRequest
                 headers["Cache-Control"] = "no-cache"
@@ -262,8 +262,10 @@ module.exports = class Core
         count = @_counter++
 
         # short-circuit if we're missing any options
-        console.log "preroller opts is ", @options.preroll, key
-        unless @options.preroll?.server && @options.preroll?.key && @options.preroll?.path
+        console.debug "preroller opts is ", @options.preroll, key
+        unless @options.preroll?.server &&
+        @options.preroll?.key &&
+        @options.preroll?.path
             cb?()
             return true
 
@@ -271,8 +273,12 @@ module.exports = class Core
         query = qs.stringify(req.query)
 
         opts = 
-            host:       @options.preroll.server
-            path:       [@options.preroll.path,@options.preroll.key,key,"?"+query].join("/")
+            host: @options.preroll.server
+            path: [
+                @options.preroll.path,
+                @options.preroll.key,
+                key, "?" + query
+            ].join("/")
 
         conn = req.connection
 
@@ -285,8 +291,8 @@ module.exports = class Core
 
                 rres.on "data", (chunk) =>
                     buf = new Buffer(pre_data.length + chunk.length)
-                    pre_data.copy(buf,0)
-                    chunk.copy(buf,pre_data.length)
+                    pre_data.copy(buf, 0)
+                    chunk.copy(buf, pre_data.length)
                     pre_data = buf
 
                 # when preroll is done, call the output's callback
