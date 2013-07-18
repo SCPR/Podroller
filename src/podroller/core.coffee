@@ -9,12 +9,12 @@ qs          = require 'qs'
 
 module.exports = class Core
     DefaultOptions:
-        log:    null
-        port:   8000
+        log: null
+        port: 8000
         prefix: ""
         # after a new deployment, allow a 30 minute grace period for 
         # connected listeners to finish their downloads
-        max_zombie_life:    2 * 60 * 1000
+        max_zombie_life: 2 * 60 * 1000
 
 
 
