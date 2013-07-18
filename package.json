@@ -9,7 +9,7 @@
   "main": "./src/podroller/core",
   "dependencies": {
     "coffee-script": "1.4.0",
-    "express": "3.1.0",
+    "express": "3.3.x",
     "fluent-ffmpeg": "1.5.x",
     "nconf": "0.5.1",
     "strtok": "0.1.1",
