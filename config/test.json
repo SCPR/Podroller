@@ -1,0 +1,13 @@
+{
+    "debug"     : true,
+    "podroller" : {
+        "port"      : 8020,
+        "log"       : "log/podroller.log",
+        "audio_dir" : "/Users/bryan/projects/Podroller/audio",
+        "preroll"   : {
+            "server"    : "campaigns.scprdev.org",
+            "key"       : "podcast",
+            "path"      : "/pre/p"
+        }
+    }
+}
