@@ -230,7 +230,7 @@ module.exports = class Core
             # If it's a range request, we could deliver a chunk that contains any or
             # all of those.
 
-            prerollStart    = k.id3.length || 0
+            prerollStart    = k.id3?.length || 0
             prerollEnd      = prerollStart + (predata?.length || 0)
             fileStart       = prerollEnd
 

@@ -118,7 +118,6 @@ module.exports = class MP3 extends require("stream").Writable
                 # calculate the length
                 # from node-id3
 
-                console.log "id3v2 v is ", v
                 @id3v2.length =  (v[5] & 0x7f) | (( v[4] & 0x7f ) << 7) | (( v[3] & 0x7f ) << 14) | (( v[2] & 0x7f ) << 21)
 
                 @_parsingId3v2 = false;
