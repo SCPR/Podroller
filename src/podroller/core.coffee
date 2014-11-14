@@ -236,22 +236,25 @@ module.exports = class Core
 
             # write id3?
             if k.id3? && rangeStart < k.id3.length
-                res.write k.id3.slice(rangeStart,rangeEnd)
+                res.write k.id3.slice(rangeStart,rangeEnd+1)
 
             if predata? && ( ( rangeStart < prerollStart < rangeEnd ) || ( rangeStart < prerollEnd < rangeEnd ) )
                 pstart = rangeStart - prerollStart
                 pstart = 0 if pstart < 0
 
-                res.write predata.slice( pstart, rangeEnd - prerollEnd )
+                res.write predata.slice( pstart, rangeEnd - prerollEnd + 1 )
 
             rstream = null
             if rangeEnd > fileStart
                 fstart = rangeStart - fileStart
                 fstart = 0 if fstart < 0
 
+                fend = rangeEnd - fileStart + 1
+
                 readStreamOpts =
                     bufferSize:     256*1024
                     start:          fstart
+                    end:            fend
 
                 console.debug "read stream opts are", readStreamOpts
                 rstream = fs.createReadStream k.filename, readStreamOpts
