@@ -171,6 +171,7 @@ module.exports = class Core
             # be changed.
             # If it IS a range request, then "length" will get
             # changed to be the chunk size.
+
             fsize   = (predata?.length||0) + k.size
             fend    = fsize - 1
             length  = fsize
@@ -179,6 +180,9 @@ module.exports = class Core
             console.debug "size:", fsize
 
             @listeners++
+
+            rangeStart  = 0
+            rangeEnd    = fend
 
             if rangeRequest
                 rangeStart  = if (requestStart  <= fend) then requestStart else 0
@@ -216,40 +220,46 @@ module.exports = class Core
 
             # now set up our file read as a stream
             console.debug "creating read stream. #{@listeners} active downloads."
-            readStreamOpts =
-                bufferSize:     256*1024
-                start:          0
 
-            # If this is a range request, only deliver that range of bytes
-            if rangeRequest
-                console.debug "Sending byte range #{rangeStart}-#{rangeEnd}"
-                readStreamOpts['start'] = rangeStart
-                readStreamOpts['end']   = rangeEnd
+            # -- deliver content -- #
 
-            if !rangeRequest || rangeStart == 0
-                # re-write our ID3 up front
-                res.write k.id3 if k.id3
+            # What we deliver is a little complicated. If this is a normal request,
+            # we deliver 1) ID3, 2) Preroll, 3) original file, minus the original ID3.
 
-                # skip the id3 when we pull the file itself in
-                readStreamOpts.start = k.id3.length
+            # If it's a range request, we could deliver a chunk that contains any or
+            # all of those.
 
-                # if we have an id3 or preroll, write them
-                # We only want to do this if we're not doing a range request
-                # (i.e. requesting the whole file), OR if the rangeStart is 0
-                # (i.e. listener is at the beginning of the stream).
-                # Otherwise, every time someone seeks or lose connection or
-                # otherwise need to request another chunk of data, they'll
-                # get the preroll again.
-                res.write predata if predata
+            prerollStart    = k.id3.length || 0
+            prerollEnd      = prerollStart + (predata?.length || 0)
+            fileStart       = prerollEnd
 
-            console.debug "read stream opts are", readStreamOpts
-            rstream = fs.createReadStream k.filename, readStreamOpts
-            rstream.pipe res, end: false
+            # write id3?
+            if k.id3 && rangeStart < k.id3.length
+                res.write k.id3.slice(rangeStart,rangeEnd)
 
-            rstream.on "end", =>
-                # got to the end of the file.  close our response
-                console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
-                res.end()
+            if predata && ( rangeStart < prerollStart < rangeEnd ) || ( rangeStart < prerollEnd < rangeEnd )
+                pstart = rangeStart - prerollStart
+                pstart = 0 if pstart < 0
+
+                res.write predata.slice( pstart, rangeEnd - prerollEnd )
+
+            rstream = null
+            if rangeEnd > fileStart
+                fstart = rangeStart - fileStart
+                fstart = 0 if fstart < 0
+
+                readStreamOpts =
+                    bufferSize:     256*1024
+                    start:          fstart
+
+                console.debug "read stream opts are", readStreamOpts
+                rstream = fs.createReadStream k.filename, readStreamOpts
+                rstream.pipe res, end: false
+
+                rstream.on "end", =>
+                    # got to the end of the file.  close our response
+                    console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    res.end()
 
             req.connection.on "end", =>
                 # connection aborted.  destroy our stream
@@ -269,6 +279,8 @@ module.exports = class Core
 
     loadPreroll: (key, req, cb) ->
         count = @_counter++
+
+        cb = _u.once cb
 
         # short-circuit if we're missing any options
         console.debug "preroller opts is ", @options.preroll, key
@@ -296,18 +308,25 @@ module.exports = class Core
             console.debug "got preroll response ", count
             if rres.statusCode == 200
                 # collect preroll and return it so length can be computed
-                pre_data = new Buffer(0)
+
+                # FIXME: If our preroll host was sending us a content-length
+                # header, we could return that with the res stream, so that
+                # we could stream the preroll straight through to the client
+
+                buffers = []
+                buf_len = 0
 
                 rres.on "data", (chunk) =>
-                    buf = new Buffer(pre_data.length + chunk.length)
-                    pre_data.copy(buf, 0)
-                    chunk.copy(buf, pre_data.length)
-                    pre_data = buf
+                    buffers.push chunk
+                    buf_len += chunk.length
 
                 # when preroll is done, call the output's callback
                 rres.on "end", =>
                     conn.removeListener "close", conn_pre_abort
                     conn.removeListener "end", conn_pre_abort
+
+                    pre_data = Buffer.concat buffers, buf_len
+
                     cb?(pre_data)
                     return true
 
@@ -322,6 +341,10 @@ module.exports = class Core
 
         req.on "error", (err) =>
             console.debug "got a request error for ", count, err
+            conn.removeListener "close", conn_pre_abort
+            conn.removeListener "end", conn_pre_abort
+            cb?()
+            return true
 
         # attach a close listener to the response, to be fired if it gets
         # shut down and we should abort the request
