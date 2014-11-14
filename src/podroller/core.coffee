@@ -164,7 +164,6 @@ module.exports = class Core
             requestStart    = rangeVals[1] - 0
             requestEnd      = rangeVals[2] - 0 or undefined
 
-
         @loadPreroll k.stream_key, req, (predata = null) =>
             # compute our final size
             # If this isn't a range request, then this info won't
@@ -186,6 +185,7 @@ module.exports = class Core
             rangeEnd    = fend
 
             if rangeRequest
+                # FIXME: Instead of changing start like this, we should be returning a 416
                 rangeStart  = if (requestStart  <= fend) then requestStart else 0
                 rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
 
@@ -261,6 +261,8 @@ module.exports = class Core
                     # got to the end of the file.  close our response
                     console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     res.end()
+            else
+                res.end()
 
             req.connection.on "end", =>
                 # connection aborted.  destroy our stream
