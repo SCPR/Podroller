@@ -178,6 +178,7 @@ module.exports = class Core
 
             console.debug req.method, req.url
             console.debug "size:", fsize
+            console.debug "Preroll data length is : #{ predata?.length || 0}"
 
             @listeners++
 
