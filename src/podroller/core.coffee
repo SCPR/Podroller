@@ -238,7 +238,7 @@ module.exports = class Core
             if k.id3? && rangeStart < k.id3.length
                 res.write k.id3.slice(rangeStart,rangeEnd)
 
-            if predata? && ( rangeStart < prerollStart < rangeEnd ) || ( rangeStart < prerollEnd < rangeEnd )
+            if predata? && ( ( rangeStart < prerollStart < rangeEnd ) || ( rangeStart < prerollEnd < rangeEnd ) )
                 pstart = rangeStart - prerollStart
                 pstart = 0 if pstart < 0
 
