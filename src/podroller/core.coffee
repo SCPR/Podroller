@@ -127,6 +127,7 @@ module.exports = class Core
         parser.once "frame", (buf,h) =>
             rstream.unpipe()
             parser.end()
+            rstream.destroy()
 
             # got a frame... grab the stream key
 
@@ -264,6 +265,7 @@ module.exports = class Core
                     # got to the end of the file.  close our response
                     console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     res.end()
+                    rstream.destroy()
             else
                 res.end()
 
