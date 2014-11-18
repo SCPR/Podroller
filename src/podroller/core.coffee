@@ -237,12 +237,14 @@ module.exports = class Core
 
             # write id3?
             if k.id3? && rangeStart < k.id3.length
+                console.debug "Writing id3 of ", k.id3.length, rangeStart, rangeEnd
                 res.write k.id3.slice(rangeStart,rangeEnd+1)
 
             if predata? && ( ( rangeStart <= prerollStart < rangeEnd ) || ( rangeStart <= prerollEnd < rangeEnd ) )
                 pstart = rangeStart - prerollStart
                 pstart = 0 if pstart < 0
 
+                console.debug "Writing preroll: ", pstart, rangeEnd - prerollEnd + 1
                 res.write predata.slice( pstart, rangeEnd - prerollEnd + 1 )
 
             rstream = null
@@ -251,6 +253,10 @@ module.exports = class Core
                 fstart = 0 if fstart < 0
 
                 fend = rangeEnd - fileStart + 1
+
+                if k.id3?.length
+                    fstart += k.id3.length
+                    fend += k.id3.length
 
                 readStreamOpts =
                     bufferSize:     256*1024
@@ -313,7 +319,7 @@ module.exports = class Core
 
         console.debug "firing preroll request", count
         req = http.get opts, (rres) =>
-            console.debug "got preroll response ", count
+            console.debug "got preroll response ", count, rres.statusCode
             if rres.statusCode == 200
                 # collect preroll and return it so length can be computed
 
