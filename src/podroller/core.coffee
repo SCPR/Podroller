@@ -164,8 +164,8 @@ module.exports = class Core
 
                 # Get the requested start and end
                 # Force into integers
-                requestStart    = rangeVals[1] - 0 or undefined
-                requestEnd      = rangeVals[2] - 0 or undefined
+                requestStart    = if rangeVals[1]? then rangeVals[1] - 0 else undefined
+                requestEnd      = if rangeVals[2]? then rangeVals[2] - 0 else undefined
 
                 if requestStart && requestEnd && (requestStart > requestEnd)
                     res.writeHead 416, "Content-type":"text/html"
@@ -205,7 +205,7 @@ module.exports = class Core
 
             if rangeRequest
                 # short-circuit with a 416 if the range start is too big
-                if requestStart && requestStart > fend
+                if requestStart? && requestStart > fend
                     headers =
                         "Content-Type":         "text/plain"
 
@@ -214,10 +214,11 @@ module.exports = class Core
 
                     return false
 
-                if requestStart && !requestEnd
+                if requestStart? && !requestEnd?
+                    rangeStart  = requestStart
                     rangeEnd    = fend
 
-                else if requestEnd && !requestStart
+                else if requestEnd? && !requestStart?
                     rangeStart  = fend - requestEnd
                     rangeEnd    = fend
 
@@ -226,9 +227,6 @@ module.exports = class Core
                     rangeEnd    = requestEnd
 
                 length = (rangeEnd - rangeStart) + 1
-
-            # What is the actual length of content being sent back?
-            console.debug "actual length is", length
 
             # send out headers
             headers =
