@@ -179,6 +179,11 @@ module.exports = class Core
                 return false
 
         @loadPreroll k.stream_key, req, (predata = null) =>
+            if req.connection.destroyed
+                # we died enroute
+                console.debug "Request was aborted."
+                return false
+
             # compute our final size
             # If this isn't a range request, then this info won't
             # be changed.
