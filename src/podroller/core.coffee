@@ -157,13 +157,26 @@ module.exports = class Core
         rangeRequest = false
 
         if _u.isString(req.headers.range)
-            rangeVals    = req.headers.range.match(/bytes ?= ?(\d+)-(\d+)?/)
-            rangeRequest = true
+            rangeVals    = req.headers.range.match(/^bytes ?= ?(\d+)?-(\d+)?$/)
 
-            # Get the requested start and end
-            # Force into integers
-            requestStart    = rangeVals[1] - 0
-            requestEnd      = rangeVals[2] - 0 or undefined
+            if rangeVals
+                rangeRequest = true
+
+                # Get the requested start and end
+                # Force into integers
+                requestStart    = rangeVals[1] - 0 or undefined
+                requestEnd      = rangeVals[2] - 0 or undefined
+
+                if requestStart && requestEnd && (requestStart > requestEnd)
+                    res.writeHead 416, "Content-type":"text/html"
+                    res.end "416 Requested Range Not Valid"
+                    return false
+
+            else
+                console.log "Invalid range header? #{ req.headers.range }"
+                res.writeHead 416, "Content-type":"text/html"
+                res.end "416 Requested Range Not Valid"
+                return false
 
         @loadPreroll k.stream_key, req, (predata = null) =>
             # compute our final size
@@ -186,9 +199,26 @@ module.exports = class Core
             rangeEnd    = fend
 
             if rangeRequest
-                # FIXME: Instead of changing start like this, we should be returning a 416
-                rangeStart  = if (requestStart  <= fend) then requestStart else 0
-                rangeEnd    = if (requestEnd    <= fend) then requestEnd   else fend
+                # short-circuit with a 416 if the range start is too big
+                if requestStart && requestStart > fend
+                    headers =
+                        "Content-Type":         "text/plain"
+
+                    res.writeHead 416, headers
+                    res.end "416 Requested Range Not Satisfiable"
+
+                    return false
+
+                if requestStart && !requestEnd
+                    rangeEnd    = fend
+
+                else if requestEnd && !requestStart
+                    rangeStart  = fend - requestEnd
+                    rangeEnd    = fend
+
+                else
+                    rangeStart  = requestStart
+                    rangeEnd    = requestEnd
 
                 length = (rangeEnd - rangeStart) + 1
 
