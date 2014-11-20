@@ -224,7 +224,7 @@ module.exports = class Core
 
                 else
                     rangeStart  = requestStart
-                    rangeEnd    = requestEnd
+                    rangeEnd    = if requestEnd < fend then requestEnd else fend
 
                 length = (rangeEnd - rangeStart) + 1
 
