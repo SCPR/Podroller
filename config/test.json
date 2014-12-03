@@ -1,6 +1,7 @@
 {
     "debug"     : true,
     "podroller" : {
+      "redirect_url": "http://127.0.0.1:8020",
         "port"      : 8020,
         "log"       : "log/podroller.log",
         "audio_dir" : "/Users/bryan/projects/Podroller/audio",
