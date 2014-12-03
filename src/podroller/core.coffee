@@ -5,6 +5,7 @@ fs          = require "fs"
 http        = require "http"
 Parser      = require "./mp3"
 qs          = require 'qs'
+uuid        = require "node-uuid"
 
 module.exports = class Core
     DefaultOptions:
@@ -59,13 +60,15 @@ module.exports = class Core
                     console.log "Still awaiting shutdown; #{@listeners} listeners"
             , 60 * 1000
 
-
+    #----------
 
     podRouter: (req, res, next) ->
         # if we take prefix away from req.url, does it match an audio file?
         match = ///^#{@options.prefix}(.*)///.exec req.path
 
-        return false if !match?[1]
+        if !match?[1]
+            next()
+            return false
 
         filename = path.join(@options.audio_dir, match[1])
         fs.stat filename, (err, stats) =>
@@ -74,35 +77,45 @@ module.exports = class Core
                 next()
                 return true
 
-            # is this a file we already know about?
-            # if so, has it not been changed?
-            if @key_cache[filename] &&
-            @key_cache[filename]?.mtime == stats.mtime.getTime() &&
-            @key_cache[filename].stream_key
-                # we're good.  use the cached stream key
-                # for preroll, then send our file
-                @streamPodcast req, res, @key_cache[filename]
+            # -- Do they have a uuid? -- #
+
+            if !req.param('uuid')
+                id = uuid.v4()
+                console.debug "Redirecting with UUID of #{ id }"
+                url = req.originalUrl + (if Object.keys(req.query) > 0 then "&uuid=#{id}" else "?uuid=#{id}")
+                res.redirect 302, url
+
             else
-                # never seen this one, or it's changed since we saw it
-                # -- validate it and get its audio settings -- #
+                console.debug "Request UUID is #{ req.param('uuid') }"
+                # is this a file we already know about?
+                # if so, has it not been changed?
+                if @key_cache[filename] &&
+                @key_cache[filename]?.mtime == stats.mtime.getTime() &&
+                @key_cache[filename].stream_key
+                    # we're good.  use the cached stream key
+                    # for preroll, then send our file
+                    @streamPodcast req, res, @key_cache[filename]
+                else
+                    # never seen this one, or it's changed since we saw it
+                    # -- validate it and get its audio settings -- #
 
-                mtime = stats.mtime.getTime()
+                    mtime = stats.mtime.getTime()
 
-                # look for ID3 tag
-                # we do this by streaming the file into our parser,
-                # and seeing which comes first: an ID3 tag or an
-                # mp3 header.  Once we hit first audio, we assume
-                # no tag and move on.  we cache any tag we get to
-                # deliver at the head of the combined file
-                @checkForID3 filename, (stream_key,id3) =>
-                    k = @key_cache[filename] =
-                        filename:   filename
-                        mtime:      mtime
-                        stream_key: stream_key
-                        id3:        id3
-                        size:       stats.size
+                    # look for ID3 tag
+                    # we do this by streaming the file into our parser,
+                    # and seeing which comes first: an ID3 tag or an
+                    # mp3 header.  Once we hit first audio, we assume
+                    # no tag and move on.  we cache any tag we get to
+                    # deliver at the head of the combined file
+                    @checkForID3 filename, (stream_key,id3) =>
+                        k = @key_cache[filename] =
+                            filename:   filename
+                            mtime:      mtime
+                            stream_key: stream_key
+                            id3:        id3
+                            size:       stats.size
 
-                    @streamPodcast(req, res, k)
+                        @streamPodcast(req, res, k)
 
     #----------
 

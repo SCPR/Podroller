@@ -1,6 +1,6 @@
 {
   "name": "Podroller",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Add audio prepends to podcast files on-the-fly.",
   "keywords": ["audio","podcast"],
   "homepage": "http://github.com/SCPR/Podroller/",
@@ -13,6 +13,7 @@
     "nconf": "0.6.9",
     "strtok": "0.1.1",
     "underscore": "1.3.3",
-    "qs": "~0.6.0"
+    "qs": "~0.6.0",
+    "node-uuid": "~1.4.1"
   }
 }
