@@ -82,7 +82,7 @@ module.exports = class Core
             if !req.param('uuid')
                 id = uuid.v4()
                 console.debug "Redirecting with UUID of #{ id }"
-                url = "#{ @options.redirect_url }#{req.originalUrl}" + (if Object.keys(req.query) > 0 then "&uuid=#{id}" else "?uuid=#{id}")
+                url = "#{ @options.redirect_url }#{req.originalUrl}" + (if Object.keys(req.query).length > 0 then "&uuid=#{id}" else "?uuid=#{id}")
                 res.redirect 302, url
 
             else
