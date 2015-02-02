@@ -363,6 +363,12 @@ module.exports = class Core
 
         conn = req.connection
 
+        # refuse to wait longer than 250ms
+        req_t = setTimeout =>
+            console.debug "Preroll timeout reached for #{count}."
+            conn_pre_abort()
+        , 250
+
         console.debug "firing preroll request", count
         req = http.get opts, (rres) =>
             console.debug "got preroll response ", count, rres.statusCode
@@ -375,6 +381,8 @@ module.exports = class Core
 
                 buffers = []
                 buf_len = 0
+
+                clearTimeout req_t
 
                 rres.on "data", (chunk) =>
                     buffers.push chunk
@@ -410,9 +418,14 @@ module.exports = class Core
         # shut down and we should abort the request
 
         conn_pre_abort = =>
+            console.debug "conn_pre_abort called. Destroyed? ", conn.destroyed
+
             if conn.destroyed
                 console.debug "aborting preroll ", count
                 req.abort()
 
+            clearTimeout req_t
+
         conn.once "close", conn_pre_abort
         conn.once "end", conn_pre_abort
+
