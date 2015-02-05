@@ -21,6 +21,8 @@ nconf.defaults({
   max_zombie_life: 2 * 60 * 1000
 });
 
+process.title = "Podroller";
+
 core = new Podroller(nconf.get());
 
 //# sourceMappingURL=runner.js.map

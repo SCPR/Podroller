@@ -311,7 +311,7 @@ module.exports = Core = (function() {
   };
 
   Core.prototype.loadPreroll = function(key, req, cb) {
-    var conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1, _ref2;
+    var aborted, conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1, _ref2;
     count = req.count;
     cb = _u.once(cb);
     debug("" + count + ": preroller opts is ", this.options.preroll, key);
@@ -322,6 +322,7 @@ module.exports = Core = (function() {
       return true;
     }
     query = qs.stringify(req.query);
+    aborted = false;
     opts = {
       host: this.options.preroll.server,
       path: [this.options.preroll.path, this.options.preroll.key, key, "?" + query].join("/")
@@ -330,9 +331,10 @@ module.exports = Core = (function() {
     req_t = setTimeout((function(_this) {
       return function() {
         debug("" + count + ": Preroll timeout reached.");
-        return conn_pre_abort();
+        conn_pre_abort();
+        return cb();
       };
-    })(this), 250);
+    })(this), 750);
     debug("firing preroll request", count);
     req = http.get(opts, (function(_this) {
       return function(rres) {
@@ -342,26 +344,27 @@ module.exports = Core = (function() {
           buffers = [];
           buf_len = 0;
           clearTimeout(req_t);
-          rres.on("data", function(chunk) {
-            buffers.push(chunk);
-            return buf_len += chunk.length;
+          rres.on("readable", function() {
+            var chunk, _results;
+            _results = [];
+            while (chunk = rres.read()) {
+              buffers.push(chunk);
+              _results.push(buf_len += chunk.length);
+            }
+            return _results;
           });
           return rres.on("end", function() {
             var pre_data;
             conn.removeListener("close", conn_pre_abort);
             conn.removeListener("end", conn_pre_abort);
             pre_data = Buffer.concat(buffers, buf_len);
-            if (typeof cb === "function") {
-              cb(pre_data);
-            }
+            cb(pre_data);
             return true;
           });
         } else {
           conn.removeListener("close", conn_pre_abort);
           conn.removeListener("end", conn_pre_abort);
-          if (typeof cb === "function") {
-            cb();
-          }
+          cb();
           return true;
         }
       };
@@ -376,18 +379,17 @@ module.exports = Core = (function() {
         debug("" + count + ": got a request error.", err);
         conn.removeListener("close", conn_pre_abort);
         conn.removeListener("end", conn_pre_abort);
-        if (typeof cb === "function") {
-          cb();
-        }
+        cb();
         return true;
       };
     })(this));
     conn_pre_abort = (function(_this) {
       return function() {
         debug("" + count + ": conn_pre_abort called. Destroyed? ", conn.destroyed);
-        if (conn.destroyed) {
-          debug("aborting preroll ", count);
+        if (!aborted) {
+          debug("" + count + ": Aborting preroll");
           req.abort();
+          aborted = true;
         }
         return clearTimeout(req_t);
       };
