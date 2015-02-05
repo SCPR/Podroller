@@ -336,7 +336,7 @@ module.exports = class Core
                 res.end()
                 rstream?.destroy() if rstream?.readable
 
-
+    #----------
 
     loadPreroll: (key, req, cb) ->
         count = req.count
@@ -354,6 +354,8 @@ module.exports = class Core
         # Pass along any query string to Preroller
         query = qs.stringify(req.query)
 
+        aborted = false
+
         opts =
             host: @options.preroll.server
             path: [
@@ -368,7 +370,8 @@ module.exports = class Core
         req_t = setTimeout =>
             debug "#{count}: Preroll timeout reached."
             conn_pre_abort()
-        , 250
+            cb()
+        , 750
 
         debug "firing preroll request", count
         req = http.get opts, (rres) =>
@@ -385,9 +388,10 @@ module.exports = class Core
 
                 clearTimeout req_t
 
-                rres.on "data", (chunk) =>
-                    buffers.push chunk
-                    buf_len += chunk.length
+                rres.on "readable", =>
+                    while chunk = rres.read()
+                        buffers.push chunk
+                        buf_len += chunk.length
 
                 # when preroll is done, call the output's callback
                 rres.on "end", =>
@@ -396,13 +400,13 @@ module.exports = class Core
 
                     pre_data = Buffer.concat buffers, buf_len
 
-                    cb?(pre_data)
+                    cb(pre_data)
                     return true
 
             else
                 conn.removeListener "close", conn_pre_abort
                 conn.removeListener "end", conn_pre_abort
-                cb?()
+                cb()
                 return true
 
         req.on "socket", (sock) =>
@@ -412,7 +416,7 @@ module.exports = class Core
             debug "#{count}: got a request error.", err
             conn.removeListener "close", conn_pre_abort
             conn.removeListener "end", conn_pre_abort
-            cb?()
+            cb()
             return true
 
         # attach a close listener to the response, to be fired if it gets
@@ -421,12 +425,14 @@ module.exports = class Core
         conn_pre_abort = =>
             debug "#{count}: conn_pre_abort called. Destroyed? ", conn.destroyed
 
-            if conn.destroyed
-                debug "aborting preroll ", count
+            if !aborted
+                debug "#{count}: Aborting preroll"
                 req.abort()
+                aborted = true
 
             clearTimeout req_t
 
+        # we don't need to fire the callback after these
         conn.once "close", conn_pre_abort
         conn.once "end", conn_pre_abort
 
