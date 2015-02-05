@@ -1,5 +1,5 @@
-Podroller= require("./src/podroller/core")
-nconf = require("nconf")
+Podroller   = require "./podroller"
+nconf       = require "nconf"
 
 # -- do we have a config file to open? -- #
 
@@ -7,7 +7,8 @@ nconf = require("nconf")
 nconf.env().argv()
 
 # add in config file
-nconf.file( { file: nconf.get("config") || nconf.get("CONFIG") || "/etc/podroller.conf" } )
+config_file = nconf.get("config") || nconf.get("CONFIG")
+nconf.file file:config_file if config_file
 
 # -- launch our core -- #
 

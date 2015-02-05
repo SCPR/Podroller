@@ -1,2 +1,1 @@
-require("coffee-script")
-require("./roller")
+require("./js/runner")
