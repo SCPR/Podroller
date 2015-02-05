@@ -1,4 +1,4 @@
-var Core, Parser, express, fs, http, path, qs, uuid, _u,
+var Core, Parser, debug, express, fs, http, path, qs, uuid, _u,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
@@ -18,28 +18,25 @@ qs = require('qs');
 
 uuid = require("node-uuid");
 
-module.exports = Core = (function() {
-  Core.prototype.DefaultOptions = {
-    log: null,
-    port: 8000,
-    prefix: "",
-    max_zombie_life: 2 * 60 * 1000
-  };
+debug = require("debug")("podroller");
 
-  function Core(opts) {
-    if (opts == null) {
-      opts = {};
-    }
+module.exports = Core = (function() {
+  function Core(options) {
+    this.options = options;
     this.checkForID3 = __bind(this.checkForID3, this);
-    this.options = _u.defaults(opts, this.DefaultOptions);
-    if (!path.existsSync(this.options.audio_dir)) {
+    if (this.options.debug) {
+      (require("debug")).enable('podroller');
+      debug = require("debug")("podroller");
+      debug("Debug logging is enabled");
+    }
+    debug("Audio dir is " + this.options.audio_dir);
+    if (!fs.existsSync(this.options.audio_dir)) {
       console.error("Audio path is invalid!");
       process.exit();
     }
     this.key_cache = {};
     this.listeners = 0;
     this._counter = 0;
-    console.debug("config is ", this.options);
     this.app = express();
     this.app.use((function(_this) {
       return function(req, res, next) {
@@ -47,19 +44,20 @@ module.exports = Core = (function() {
       };
     })(this));
     this.server = this.app.listen(this.options.port);
+    debug("Listening on port " + this.options.port);
     process.on("SIGTERM", (function(_this) {
       return function() {
         _this.server.close();
         _this._shutdownMaxTime = (new Date).getTime() + _this.options.max_zombie_life;
-        console.log("Got SIGTERM. Starting graceful shutdown with " + _this.listeners + " listeners.");
+        console.error("Got SIGTERM. Starting graceful shutdown with " + _this.listeners + " listeners.");
         return _this._shutdownTimeout = setInterval(function() {
           var force_shut;
           force_shut = (new Date).getTime() > _this._shutdownMaxTime ? true : false;
           if (_this.listeners === 0 || force_shut) {
-            console.log("Shutdown complete");
+            console.error("Shutdown complete");
             return process.exit();
           } else {
-            return console.log("Still awaiting shutdown; " + _this.listeners + " listeners");
+            return console.error("Still awaiting shutdown; " + _this.listeners + " listeners");
           }
         }, 60 * 1000);
       };
@@ -73,6 +71,7 @@ module.exports = Core = (function() {
       next();
       return false;
     }
+    req.count = this._counter++;
     filename = path.join(this.options.audio_dir, match[1]);
     return fs.stat(filename, (function(_this) {
       return function(err, stats) {
@@ -81,13 +80,13 @@ module.exports = Core = (function() {
           next();
           return true;
         }
-        if (!req.param('uuid')) {
+        if (_this.options.redirect_url && !req.param('uuid')) {
           id = uuid.v4();
-          console.debug("Redirecting with UUID of " + id);
+          debug("" + req.count + ": Redirecting with UUID of " + id);
           url = ("" + _this.options.redirect_url + (req.originalUrl.replace('//', '/'))) + (Object.keys(req.query).length > 0 ? "&uuid=" + id : "?uuid=" + id);
           return res.redirect(302, url);
         } else {
-          console.debug("Request UUID is " + (req.param('uuid')));
+          debug("" + req.count + ": Request UUID is " + (req.param('uuid')));
           if (_this.key_cache[filename] && ((_ref = _this.key_cache[filename]) != null ? _ref.mtime : void 0) === stats.mtime.getTime() && _this.key_cache[filename].stream_key) {
             return _this.streamPodcast(req, res, _this.key_cache[filename]);
           } else {
@@ -117,18 +116,18 @@ module.exports = Core = (function() {
       return function() {
         var msgs;
         msgs = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-        return console.debug.apply(console, msgs);
+        return debug.apply(null, msgs);
       };
     })(this));
     parser.once("id3v2", (function(_this) {
       return function(buf) {
-        console.debug("got an id3v2 of ", buf.length);
+        debug("got an id3v2 of ", buf.length);
         return tags.push(buf);
       };
     })(this));
     parser.once("id3v1", (function(_this) {
       return function(buf) {
-        console.debug("got an id3v1 of ", buf.length);
+        debug("got an id3v1 of ", buf.length);
         return tags.push(buf);
       };
     })(this));
@@ -148,8 +147,8 @@ module.exports = Core = (function() {
               return Buffer.concat(tags);
           }
         })();
-        console.debug("tag_buf is ", tag_buf);
-        console.debug("stream_key is ", h.stream_key);
+        debug("tag_buf is ", tag_buf);
+        debug("stream_key is ", h.stream_key);
         return cb(h.stream_key, tag_buf);
       };
     })(this));
@@ -192,15 +191,15 @@ module.exports = Core = (function() {
           predata = null;
         }
         if (req.connection.destroyed) {
-          console.debug("Request was aborted.");
+          debug("Request was aborted.");
           return false;
         }
         fsize = ((predata != null ? predata.length : void 0) || 0) + k.size;
         fend = fsize - 1;
         length = fsize;
-        console.debug(req.method, req.url);
-        console.debug("size:", fsize);
-        console.debug("Preroll data length is : " + ((predata != null ? predata.length : void 0) || 0));
+        debug(req.method, req.url);
+        debug("" + req.count + ": size:", fsize);
+        debug("" + req.count + ": Preroll data length is : " + ((predata != null ? predata.length : void 0) || 0));
         _this.listeners++;
         rangeStart = 0;
         rangeEnd = fend;
@@ -239,17 +238,17 @@ module.exports = Core = (function() {
         } else {
           res.writeHead(200, headers);
         }
-        console.debug("response headers are", headers);
+        debug("" + req.count + ": response headers are", headers);
         if (req.method === "HEAD") {
           res.end();
           return true;
         }
-        console.debug("creating read stream. " + _this.listeners + " active downloads.");
+        debug("" + req.count + ": creating read stream. " + _this.listeners + " active downloads.");
         prerollStart = ((_ref = k.id3) != null ? _ref.length : void 0) || 0;
         prerollEnd = prerollStart + ((predata != null ? predata.length : void 0) || 0);
         fileStart = prerollEnd;
         if ((k.id3 != null) && rangeStart < k.id3.length) {
-          console.debug("Writing id3 of ", k.id3.length, rangeStart, rangeEnd);
+          debug("" + req.count + ": Writing id3 of ", k.id3.length, rangeStart, rangeEnd);
           res.write(k.id3.slice(rangeStart, rangeEnd + 1));
         }
         if ((predata != null) && (((rangeStart <= prerollStart && prerollStart < rangeEnd)) || ((rangeStart <= prerollEnd && prerollEnd < rangeEnd)))) {
@@ -257,7 +256,7 @@ module.exports = Core = (function() {
           if (pstart < 0) {
             pstart = 0;
           }
-          console.debug("Writing preroll: ", pstart, rangeEnd - prerollEnd + 1);
+          debug("" + req.count + ": Writing preroll: ", pstart, rangeEnd - prerollEnd + 1);
           res.write(predata.slice(pstart, rangeEnd - prerollEnd + 1));
         }
         rstream = null;
@@ -276,14 +275,14 @@ module.exports = Core = (function() {
             start: fstart,
             end: fend
           };
-          console.debug("read stream opts are", readStreamOpts);
+          debug("" + req.count + ": read stream opts are", readStreamOpts);
           rstream = fs.createReadStream(k.filename, readStreamOpts);
           rstream.pipe(res, {
             end: false
           });
           rstream.on("end", function() {
             var _ref2;
-            console.debug("(stream end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
+            debug("" + req.count + ": (stream end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
             res.end();
             return rstream.destroy();
           });
@@ -292,13 +291,13 @@ module.exports = Core = (function() {
         }
         req.connection.on("end", function() {
           var _ref2;
-          console.debug("(connection end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
+          debug("" + req.count + ": (connection end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
           if (rstream != null ? rstream.readable : void 0) {
             return rstream != null ? rstream.destroy() : void 0;
           }
         });
         req.connection.on("close", function() {
-          console.debug("(conn close) in close. " + _this.listeners + " active downloads.");
+          debug("" + req.count + ": (conn close) in close. " + _this.listeners + " active downloads.");
           return _this.listeners--;
         });
         return req.connection.setTimeout(30 * 1000, function() {
@@ -313,9 +312,9 @@ module.exports = Core = (function() {
 
   Core.prototype.loadPreroll = function(key, req, cb) {
     var conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1, _ref2;
-    count = this._counter++;
+    count = req.count;
     cb = _u.once(cb);
-    console.debug("preroller opts is ", this.options.preroll, key);
+    debug("" + count + ": preroller opts is ", this.options.preroll, key);
     if (!(((_ref = this.options.preroll) != null ? _ref.server : void 0) && ((_ref1 = this.options.preroll) != null ? _ref1.key : void 0) && ((_ref2 = this.options.preroll) != null ? _ref2.path : void 0))) {
       if (typeof cb === "function") {
         cb();
@@ -330,15 +329,15 @@ module.exports = Core = (function() {
     conn = req.connection;
     req_t = setTimeout((function(_this) {
       return function() {
-        console.debug("Preroll timeout reached for " + count + ".");
+        debug("" + count + ": Preroll timeout reached.");
         return conn_pre_abort();
       };
     })(this), 250);
-    console.debug("firing preroll request", count);
+    debug("firing preroll request", count);
     req = http.get(opts, (function(_this) {
       return function(rres) {
         var buf_len, buffers;
-        console.debug("got preroll response ", count, rres.statusCode);
+        debug("" + count + ": got preroll response ", rres.statusCode);
         if (rres.statusCode === 200) {
           buffers = [];
           buf_len = 0;
@@ -369,12 +368,12 @@ module.exports = Core = (function() {
     })(this));
     req.on("socket", (function(_this) {
       return function(sock) {
-        return console.debug("socket granted for ", count);
+        return debug("" + count + ": preroll socket granted");
       };
     })(this));
     req.on("error", (function(_this) {
       return function(err) {
-        console.debug("got a request error for ", count, err);
+        debug("" + count + ": got a request error.", err);
         conn.removeListener("close", conn_pre_abort);
         conn.removeListener("end", conn_pre_abort);
         if (typeof cb === "function") {
@@ -385,9 +384,9 @@ module.exports = Core = (function() {
     })(this));
     conn_pre_abort = (function(_this) {
       return function() {
-        console.debug("conn_pre_abort called. Destroyed? ", conn.destroyed);
+        debug("" + count + ": conn_pre_abort called. Destroyed? ", conn.destroyed);
         if (conn.destroyed) {
-          console.debug("aborting preroll ", count);
+          debug("aborting preroll ", count);
           req.abort();
         }
         return clearTimeout(req_t);

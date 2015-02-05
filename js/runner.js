@@ -1,5 +1,4 @@
-var DEBUG, Podroller, config_file, core, nconf,
-  __slice = [].slice;
+var Podroller, config_file, core, nconf;
 
 Podroller = require("./podroller");
 
@@ -15,16 +14,13 @@ if (config_file) {
   });
 }
 
-DEBUG = nconf.get("debug");
+nconf.defaults({
+  debug: false,
+  port: 8000,
+  prefix: "",
+  max_zombie_life: 2 * 60 * 1000
+});
 
-console.debug = function() {
-  var messages;
-  messages = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-  if (DEBUG) {
-    return console.log.apply(console, ["DEBUG:"].concat(__slice.call(messages)));
-  }
-};
-
-core = new Podroller(nconf.get("podroller"));
+core = new Podroller(nconf.get());
 
 //# sourceMappingURL=runner.js.map

@@ -10,13 +10,12 @@ nconf.env().argv()
 config_file = nconf.get("config") || nconf.get("CONFIG")
 nconf.file file:config_file if config_file
 
+nconf.defaults
+    debug:              false
+    port:               8000
+    prefix:             ""
+    max_zombie_life:    2 * 60 * 1000
+
 # -- launch our core -- #
 
-DEBUG = nconf.get("debug")
-
-console.debug = (messages...) ->
-    if DEBUG
-        console.log "DEBUG:", messages...
-
-
-core = new Podroller nconf.get("podroller")
+core = new Podroller nconf.get()

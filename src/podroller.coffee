@@ -7,20 +7,19 @@ Parser      = require "./mp3"
 qs          = require 'qs'
 uuid        = require "node-uuid"
 
-module.exports = class Core
-    DefaultOptions:
-        log: null
-        port: 8000
-        prefix: ""
-        # after a new deployment, allow a 30 minute grace period for
-        # connected listeners to finish their downloads
-        max_zombie_life: 2 * 60 * 1000
+debug       = require("debug")("podroller")
 
-    constructor: (opts={}) ->
-        @options = _u.defaults opts, @DefaultOptions
+module.exports = class Core
+    constructor: (@options) ->
+        if @options.debug
+            (require "debug").enable('podroller')
+            debug = require("debug")("podroller")
+            debug "Debug logging is enabled"
 
         # -- make sure our audio dir is valid -- #
-        if !path.existsSync(@options.audio_dir)
+
+        debug "Audio dir is #{ @options.audio_dir }"
+        if !fs.existsSync(@options.audio_dir)
             console.error "Audio path is invalid!"
             process.exit()
 
@@ -30,10 +29,10 @@ module.exports = class Core
         @_counter   = 0
 
         # -- set up a server -- #
-        console.debug "config is ", @options
         @app = express()
         @app.use (req, res, next) => @podRouter(req, res, next)
         @server = @app.listen @options.port
+        debug "Listening on port #{ @options.port }"
 
         # -- set up a shutdown handler -- #
 
@@ -45,7 +44,7 @@ module.exports = class Core
             # when should we get pushy?
             @_shutdownMaxTime = (new Date).getTime() + @options.max_zombie_life
 
-            console.log "Got SIGTERM. Starting graceful shutdown with #{@listeners} listeners."
+            console.error "Got SIGTERM. Starting graceful shutdown with #{@listeners} listeners."
 
             # need to start a process to quit when existing connections disconnect
             @_shutdownTimeout = setInterval =>
@@ -54,10 +53,10 @@ module.exports = class Core
 
                 if @listeners == 0 || force_shut
                     # everyone's out...  go ahead and shut down
-                    console.log "Shutdown complete"
+                    console.error "Shutdown complete"
                     process.exit()
                 else
-                    console.log "Still awaiting shutdown; #{@listeners} listeners"
+                    console.error "Still awaiting shutdown; #{@listeners} listeners"
             , 60 * 1000
 
     #----------
@@ -70,6 +69,8 @@ module.exports = class Core
             next()
             return false
 
+        req.count = @_counter++
+
         filename = path.join(@options.audio_dir, match[1])
         fs.stat filename, (err, stats) =>
             # if there was a stat error or this isn't a file, move on
@@ -79,14 +80,14 @@ module.exports = class Core
 
             # -- Do they have a uuid? -- #
 
-            if !req.param('uuid')
+            if @options.redirect_url && !req.param('uuid')
                 id = uuid.v4()
-                console.debug "Redirecting with UUID of #{ id }"
+                debug "#{req.count}: Redirecting with UUID of #{ id }"
                 url = "#{ @options.redirect_url }#{ req.originalUrl.replace('//','/') }" + (if Object.keys(req.query).length > 0 then "&uuid=#{id}" else "?uuid=#{id}")
                 res.redirect 302, url
 
             else
-                console.debug "Request UUID is #{ req.param('uuid') }"
+                debug "#{req.count}: Request UUID is #{ req.param('uuid') }"
                 # is this a file we already know about?
                 # if so, has it not been changed?
                 if @key_cache[filename] &&
@@ -125,16 +126,16 @@ module.exports = class Core
         tags = []
 
         parser.on "debug", (msgs...) =>
-            console.debug msgs...
+            debug msgs...
 
         parser.once "id3v2", (buf) =>
             # got an ID3v2
-            console.debug "got an id3v2 of ", buf.length
+            debug "got an id3v2 of ", buf.length
             tags.push buf
 
         parser.once "id3v1", (buf) =>
             # got an ID3v1
-            console.debug "got an id3v1 of ", buf.length
+            debug "got an id3v1 of ", buf.length
             tags.push buf
 
         parser.once "frame", (buf,h) =>
@@ -152,8 +153,8 @@ module.exports = class Core
                 else
                     Buffer.concat(tags)
 
-            console.debug "tag_buf is ", tag_buf
-            console.debug "stream_key is ", h.stream_key
+            debug "tag_buf is ", tag_buf
+            debug "stream_key is ", h.stream_key
 
             cb h.stream_key, tag_buf
 
@@ -194,7 +195,7 @@ module.exports = class Core
         @loadPreroll k.stream_key, req, (predata = null) =>
             if req.connection.destroyed
                 # we died enroute
-                console.debug "Request was aborted."
+                debug "Request was aborted."
                 return false
 
             # compute our final size
@@ -207,9 +208,9 @@ module.exports = class Core
             fend    = fsize - 1
             length  = fsize
 
-            console.debug req.method, req.url
-            console.debug "size:", fsize
-            console.debug "Preroll data length is : #{ predata?.length || 0}"
+            debug req.method, req.url
+            debug "#{req.count}: size:", fsize
+            debug "#{req.count}: Preroll data length is : #{ predata?.length || 0}"
 
             @listeners++
 
@@ -256,7 +257,7 @@ module.exports = class Core
             else
                 res.writeHead 200, headers
 
-            console.debug "response headers are", headers
+            debug "#{req.count}: response headers are", headers
 
             # If this is a HEAD request, we don't need to
             # pipe the actual data to the client, so
@@ -267,7 +268,7 @@ module.exports = class Core
 
 
             # now set up our file read as a stream
-            console.debug "creating read stream. #{@listeners} active downloads."
+            debug "#{req.count}: creating read stream. #{@listeners} active downloads."
 
             # -- deliver content -- #
 
@@ -283,14 +284,14 @@ module.exports = class Core
 
             # write id3?
             if k.id3? && rangeStart < k.id3.length
-                console.debug "Writing id3 of ", k.id3.length, rangeStart, rangeEnd
+                debug "#{req.count}: Writing id3 of ", k.id3.length, rangeStart, rangeEnd
                 res.write k.id3.slice(rangeStart,rangeEnd+1)
 
             if predata? && ( ( rangeStart <= prerollStart < rangeEnd ) || ( rangeStart <= prerollEnd < rangeEnd ) )
                 pstart = rangeStart - prerollStart
                 pstart = 0 if pstart < 0
 
-                console.debug "Writing preroll: ", pstart, rangeEnd - prerollEnd + 1
+                debug "#{req.count}: Writing preroll: ", pstart, rangeEnd - prerollEnd + 1
                 res.write predata.slice( pstart, rangeEnd - prerollEnd + 1 )
 
             rstream = null
@@ -309,13 +310,13 @@ module.exports = class Core
                     start:          fstart
                     end:            fend
 
-                console.debug "read stream opts are", readStreamOpts
+                debug "#{req.count}: read stream opts are", readStreamOpts
                 rstream = fs.createReadStream k.filename, readStreamOpts
                 rstream.pipe res, end: false
 
                 rstream.on "end", =>
                     # got to the end of the file.  close our response
-                    console.debug "(stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                    debug "#{req.count}: (stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     res.end()
                     rstream.destroy()
             else
@@ -323,11 +324,11 @@ module.exports = class Core
 
             req.connection.on "end", =>
                 # connection aborted.  destroy our stream
-                console.debug "(connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
+                debug "#{req.count}: (connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                 rstream?.destroy() if rstream?.readable
 
             req.connection.on "close", =>
-                console.debug "(conn close) in close. #{@listeners} active downloads."
+                debug "#{req.count}: (conn close) in close. #{@listeners} active downloads."
                 @listeners--
 
             req.connection.setTimeout 30*1000, =>
@@ -338,12 +339,12 @@ module.exports = class Core
 
 
     loadPreroll: (key, req, cb) ->
-        count = @_counter++
+        count = req.count
 
         cb = _u.once cb
 
         # short-circuit if we're missing any options
-        console.debug "preroller opts is ", @options.preroll, key
+        debug "#{count}: preroller opts is ", @options.preroll, key
         unless @options.preroll?.server &&
         @options.preroll?.key &&
         @options.preroll?.path
@@ -365,13 +366,13 @@ module.exports = class Core
 
         # refuse to wait longer than 250ms
         req_t = setTimeout =>
-            console.debug "Preroll timeout reached for #{count}."
+            debug "#{count}: Preroll timeout reached."
             conn_pre_abort()
         , 250
 
-        console.debug "firing preroll request", count
+        debug "firing preroll request", count
         req = http.get opts, (rres) =>
-            console.debug "got preroll response ", count, rres.statusCode
+            debug "#{count}: got preroll response ", rres.statusCode
             if rres.statusCode == 200
                 # collect preroll and return it so length can be computed
 
@@ -405,10 +406,10 @@ module.exports = class Core
                 return true
 
         req.on "socket", (sock) =>
-            console.debug "socket granted for ", count
+            debug "#{count}: preroll socket granted"
 
         req.on "error", (err) =>
-            console.debug "got a request error for ", count, err
+            debug "#{count}: got a request error.", err
             conn.removeListener "close", conn_pre_abort
             conn.removeListener "end", conn_pre_abort
             cb?()
@@ -418,10 +419,10 @@ module.exports = class Core
         # shut down and we should abort the request
 
         conn_pre_abort = =>
-            console.debug "conn_pre_abort called. Destroyed? ", conn.destroyed
+            debug "#{count}: conn_pre_abort called. Destroyed? ", conn.destroyed
 
             if conn.destroyed
-                console.debug "aborting preroll ", count
+                debug "aborting preroll ", count
                 req.abort()
 
             clearTimeout req_t
