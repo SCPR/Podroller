@@ -18,4 +18,6 @@ nconf.defaults
 
 # -- launch our core -- #
 
+process.title = "Podroller"
+
 core = new Podroller nconf.get()
