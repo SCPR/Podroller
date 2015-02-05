@@ -1,6 +1,6 @@
 {
   "name": "Podroller",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Add audio prepends to podcast files on-the-fly.",
   "keywords": ["audio","podcast"],
   "homepage": "http://github.com/SCPR/Podroller/",
@@ -23,8 +23,7 @@
     "grunt-contrib-coffee": "^0.12.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublish": "grunt"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
     "podroller": "./runner-cmd"
