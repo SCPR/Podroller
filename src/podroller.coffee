@@ -282,6 +282,9 @@ module.exports = class Core
             prerollEnd      = prerollStart + (predata?.length || 0)
             fileStart       = prerollEnd
 
+            _decListener = _.once =>
+                @listeners--
+
             # write id3?
             if k.id3? && rangeStart < k.id3.length
                 debug "#{req.count}: Writing id3 of ", k.id3.length, rangeStart, rangeEnd
@@ -326,15 +329,19 @@ module.exports = class Core
                 # connection aborted.  destroy our stream
                 debug "#{req.count}: (connection end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                 rstream?.destroy() if rstream?.readable
+                _decListener()
+
 
             req.connection.on "close", =>
                 debug "#{req.count}: (conn close) in close. #{@listeners} active downloads."
-                @listeners--
+                _decListener()
 
             req.connection.setTimeout 30*1000, =>
                 # handle connection timeout
+                debug "#{req.count}: Connection timeout. Ending."
                 res.end()
                 rstream?.destroy() if rstream?.readable
+                _decListener()
 
     #----------
 
@@ -344,7 +351,6 @@ module.exports = class Core
         cb = _u.once cb
 
         # short-circuit if we're missing any options
-        debug "#{count}: preroller opts is ", @options.preroll, key
         unless @options.preroll?.server &&
         @options.preroll?.key &&
         @options.preroll?.path
@@ -376,6 +382,10 @@ module.exports = class Core
         debug "firing preroll request", count
         req = http.get opts, (rres) =>
             debug "#{count}: got preroll response ", rres.statusCode
+
+            # clear our abort timer
+            clearTimeout req_t
+
             if rres.statusCode == 200
                 # collect preroll and return it so length can be computed
 
@@ -385,8 +395,6 @@ module.exports = class Core
 
                 buffers = []
                 buf_len = 0
-
-                clearTimeout req_t
 
                 rres.on "readable", =>
                     while chunk = rres.read()
