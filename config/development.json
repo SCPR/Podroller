@@ -7,6 +7,6 @@
     "preroll": {
         "key": "podcast",
         "path": "/pre/p",
-        "server": "campaigns.scprdev.org"
+        "server": "127.0.0.1:3001"
     }
 }

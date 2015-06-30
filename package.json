@@ -1,12 +1,12 @@
 {
-  "name": "Podroller",
-  "version": "0.4.1",
+  "name": "podroller",
+  "version": "0.5.0",
   "description": "Add audio prepends to podcast files on-the-fly.",
   "keywords": ["audio","podcast"],
   "homepage": "http://github.com/SCPR/Podroller/",
-  "author": {"name": "Eric Richardson", "url": "http://ericrichardson.com"},
+  "author": {"name": "Eric Richardson", "url": "http://ewr.is"},
   "repository": {"type": "git", "url": "http://github.com/SCPR/Podroller.git"},
-  "main": "./src/podroller/core",
+  "main": "./index.js",
   "dependencies": {
     "express":    "^4.12.0",
     "nconf":      "0.6.9",
