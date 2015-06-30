@@ -6,6 +6,7 @@
   "homepage": "http://github.com/SCPR/Podroller/",
   "author": {"name": "Eric Richardson", "url": "http://ewr.is"},
   "repository": {"type": "git", "url": "http://github.com/SCPR/Podroller.git"},
+  "license": "MIT",
   "main": "./index.js",
   "dependencies": {
     "express":    "^4.12.0",
