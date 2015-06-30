@@ -1,9 +1,9 @@
-_u          = require "underscore"
+_           = require "underscore"
 path        = require 'path'
 express     = require 'express'
 fs          = require "fs"
 http        = require "http"
-Parser      = require "./mp3"
+Parser      = (require "sm-parsers").MP3
 qs          = require 'qs'
 uuid        = require "node-uuid"
 
@@ -11,10 +11,7 @@ debug       = require("debug")("podroller")
 
 module.exports = class Core
     constructor: (@options) ->
-        if @options.debug
-            (require "debug").enable('podroller')
-            debug = require("debug")("podroller")
-            debug "Debug logging is enabled"
+        debug "Debug logging is enabled"
 
         # -- make sure our audio dir is valid -- #
 
@@ -30,93 +27,83 @@ module.exports = class Core
 
         # -- set up a server -- #
         @app = express()
-        @app.use (req, res, next) => @podRouter(req, res, next)
+
+        @app.use @onlyValidFiles()
+        @app.use @injectUUID() if @options.redirect_url
+        @app.use @requestHandler()
+
         @server = @app.listen @options.port
         debug "Listening on port #{ @options.port }"
 
-        # -- set up a shutdown handler -- #
+    #----------
 
-        process.on "SIGTERM", =>
-            # stop listening
-            @server.close()
+    onlyValidFiles: ->
+        (req,res,next) =>
+            # if we take prefix away from req.url, does it match an audio file?
+            match = ///^#{@options.prefix}(.*)///.exec req.path
 
-            # now start polling to see how many files we're delivering
-            # when should we get pushy?
-            @_shutdownMaxTime = (new Date).getTime() + @options.max_zombie_life
+            if !match?[1]
+                next()
+                return false
 
-            console.error "Got SIGTERM. Starting graceful shutdown with #{@listeners} listeners."
+            req.count = @_counter++
 
-            # need to start a process to quit when existing connections disconnect
-            @_shutdownTimeout = setInterval =>
-                # have we used up the grace period yet?
-                force_shut = if (new Date).getTime() > @_shutdownMaxTime then true else false
-
-                if @listeners == 0 || force_shut
-                    # everyone's out...  go ahead and shut down
-                    console.error "Shutdown complete"
-                    process.exit()
+            filename = path.join(@options.audio_dir, match[1])
+            fs.stat filename, (err, stats) =>
+                # if there was a stat error or this isn't a file, return a 404
+                if err || !stats.isFile()
+                    res.status(404).end()
                 else
-                    console.error "Still awaiting shutdown; #{@listeners} listeners"
-            , 60 * 1000
+                    req.filename    = filename
+                    req.fstats      = stats
+                    next()
 
     #----------
 
-    podRouter: (req, res, next) ->
-        # if we take prefix away from req.url, does it match an audio file?
-        match = ///^#{@options.prefix}(.*)///.exec req.path
-
-        if !match?[1]
-            next()
-            return false
-
-        req.count = @_counter++
-
-        filename = path.join(@options.audio_dir, match[1])
-        fs.stat filename, (err, stats) =>
-            # if there was a stat error or this isn't a file, move on
-            if err || !stats.isFile()
-                next()
-                return true
-
-            # -- Do they have a uuid? -- #
-
-            if @options.redirect_url && !req.param('uuid')
+    injectUUID: ->
+        (req,res,next) =>
+            if !req.query.uuid
                 id = uuid.v4()
-                debug "#{req.count}: Redirecting with UUID of #{ id }"
+                debug "#{req.count}: Redirecting with UUID of #{ id } (#{req.originalUrl})"
                 url = "#{ @options.redirect_url }#{ req.originalUrl.replace('//','/') }" + (if Object.keys(req.query).length > 0 then "&uuid=#{id}" else "?uuid=#{id}")
                 res.redirect 302, url
-
             else
-                debug "#{req.count}: Request UUID is #{ req.param('uuid') }"
-                # is this a file we already know about?
-                # if so, has it not been changed?
-                if @key_cache[filename] &&
-                @key_cache[filename]?.mtime == stats.mtime.getTime() &&
-                @key_cache[filename].stream_key
-                    # we're good.  use the cached stream key
-                    # for preroll, then send our file
-                    @streamPodcast req, res, @key_cache[filename]
-                else
-                    # never seen this one, or it's changed since we saw it
-                    # -- validate it and get its audio settings -- #
+                next()
 
-                    mtime = stats.mtime.getTime()
+    #----------
 
-                    # look for ID3 tag
-                    # we do this by streaming the file into our parser,
-                    # and seeing which comes first: an ID3 tag or an
-                    # mp3 header.  Once we hit first audio, we assume
-                    # no tag and move on.  we cache any tag we get to
-                    # deliver at the head of the combined file
-                    @checkForID3 filename, (stream_key,id3) =>
-                        k = @key_cache[filename] =
-                            filename:   filename
-                            mtime:      mtime
-                            stream_key: stream_key
-                            id3:        id3
-                            size:       stats.size
+    requestHandler: ->
+        (req, res, next) =>
+            debug "#{req.count}: Request UUID is #{ req.query.uuid }"
+            # is this a file we already know about?
+            # if so, has it not been changed?
+            if @key_cache[req.filename] &&
+            @key_cache[req.filename]?.mtime == req.fstats.mtime.getTime() &&
+            @key_cache[req.filename].stream_key
+                # we're good.  use the cached stream key
+                # for preroll, then send our file
+                @streamPodcast req, res, @key_cache[req.filename]
+            else
+                # never seen this one, or it's changed since we saw it
+                # -- validate it and get its audio settings -- #
 
-                        @streamPodcast(req, res, k)
+                mtime = req.fstats.mtime.getTime()
+
+                # look for ID3 tag
+                # we do this by streaming the file into our parser,
+                # and seeing which comes first: an ID3 tag or an
+                # mp3 header.  Once we hit first audio, we assume
+                # no tag and move on.  we cache any tag we get to
+                # deliver at the head of the combined file
+                @checkForID3 req.filename, (stream_key,id3) =>
+                    k = @key_cache[req.filename] =
+                        filename:   req.filename
+                        mtime:      mtime
+                        stream_key: stream_key
+                        id3:        id3
+                        size:       req.fstats.size
+
+                    @streamPodcast(req, res, k)
 
     #----------
 
@@ -126,7 +113,7 @@ module.exports = class Core
         tags = []
 
         parser.on "debug", (msgs...) =>
-            debug msgs...
+            #debug msgs...
 
         parser.once "id3v2", (buf) =>
             # got an ID3v2
@@ -153,8 +140,8 @@ module.exports = class Core
                 else
                     Buffer.concat(tags)
 
-            debug "tag_buf is ", tag_buf
-            debug "stream_key is ", h.stream_key
+            debug "tag_buf is #{tag_buf}"
+            debug "stream_key is #{h.stream_key}"
 
             cb h.stream_key, tag_buf
 
@@ -170,7 +157,7 @@ module.exports = class Core
         # False by default
         rangeRequest = false
 
-        if _u.isString(req.headers.range)
+        if _.isString(req.headers.range)
             rangeVals    = req.headers.range.match(/^bytes ?= ?(\d+)?-(\d+)?$/)
 
             if rangeVals
@@ -348,7 +335,7 @@ module.exports = class Core
     loadPreroll: (key, req, cb) ->
         count = req.count
 
-        cb = _u.once cb
+        cb = _.once cb
 
         # short-circuit if we're missing any options
         unless @options.preroll?.server &&

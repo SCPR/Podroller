@@ -17,8 +17,7 @@ if (config_file) {
 nconf.defaults({
   debug: false,
   port: 8000,
-  prefix: "",
-  max_zombie_life: 2 * 60 * 1000
+  prefix: ""
 });
 
 process.title = "Podroller";

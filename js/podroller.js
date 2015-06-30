@@ -1,8 +1,8 @@
-var Core, Parser, debug, express, fs, http, path, qs, uuid, _u,
+var Core, Parser, debug, express, fs, http, path, qs, uuid, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
-_u = require("underscore");
+_ = require("underscore");
 
 path = require('path');
 
@@ -12,7 +12,7 @@ fs = require("fs");
 
 http = require("http");
 
-Parser = require("./mp3");
+Parser = (require("sm-parsers")).MP3;
 
 qs = require('qs');
 
@@ -24,11 +24,7 @@ module.exports = Core = (function() {
   function Core(options) {
     this.options = options;
     this.checkForID3 = __bind(this.checkForID3, this);
-    if (this.options.debug) {
-      (require("debug")).enable('podroller');
-      debug = require("debug")("podroller");
-      debug("Debug logging is enabled");
-    }
+    debug("Debug logging is enabled");
     debug("Audio dir is " + this.options.audio_dir);
     if (!fs.existsSync(this.options.audio_dir)) {
       console.error("Audio path is invalid!");
@@ -38,74 +34,78 @@ module.exports = Core = (function() {
     this.listeners = 0;
     this._counter = 0;
     this.app = express();
-    this.app.use((function(_this) {
-      return function(req, res, next) {
-        return _this.podRouter(req, res, next);
-      };
-    })(this));
+    this.app.use(this.onlyValidFiles());
+    if (this.options.redirect_url) {
+      this.app.use(this.injectUUID());
+    }
+    this.app.use(this.requestHandler());
     this.server = this.app.listen(this.options.port);
     debug("Listening on port " + this.options.port);
-    process.on("SIGTERM", (function(_this) {
-      return function() {
-        _this.server.close();
-        _this._shutdownMaxTime = (new Date).getTime() + _this.options.max_zombie_life;
-        console.error("Got SIGTERM. Starting graceful shutdown with " + _this.listeners + " listeners.");
-        return _this._shutdownTimeout = setInterval(function() {
-          var force_shut;
-          force_shut = (new Date).getTime() > _this._shutdownMaxTime ? true : false;
-          if (_this.listeners === 0 || force_shut) {
-            console.error("Shutdown complete");
-            return process.exit();
-          } else {
-            return console.error("Still awaiting shutdown; " + _this.listeners + " listeners");
-          }
-        }, 60 * 1000);
-      };
-    })(this));
   }
 
-  Core.prototype.podRouter = function(req, res, next) {
-    var filename, match;
-    match = RegExp("^" + this.options.prefix + "(.*)").exec(req.path);
-    if (!(match != null ? match[1] : void 0)) {
-      next();
-      return false;
-    }
-    req.count = this._counter++;
-    filename = path.join(this.options.audio_dir, match[1]);
-    return fs.stat(filename, (function(_this) {
-      return function(err, stats) {
-        var id, mtime, url, _ref;
-        if (err || !stats.isFile()) {
+  Core.prototype.onlyValidFiles = function() {
+    return (function(_this) {
+      return function(req, res, next) {
+        var filename, match;
+        match = RegExp("^" + _this.options.prefix + "(.*)").exec(req.path);
+        if (!(match != null ? match[1] : void 0)) {
           next();
-          return true;
+          return false;
         }
-        if (_this.options.redirect_url && !req.param('uuid')) {
+        req.count = _this._counter++;
+        filename = path.join(_this.options.audio_dir, match[1]);
+        return fs.stat(filename, function(err, stats) {
+          if (err || !stats.isFile()) {
+            return res.status(404).end();
+          } else {
+            req.filename = filename;
+            req.fstats = stats;
+            return next();
+          }
+        });
+      };
+    })(this);
+  };
+
+  Core.prototype.injectUUID = function() {
+    return (function(_this) {
+      return function(req, res, next) {
+        var id, url;
+        if (!req.query.uuid) {
           id = uuid.v4();
-          debug("" + req.count + ": Redirecting with UUID of " + id);
+          debug("" + req.count + ": Redirecting with UUID of " + id + " (" + req.originalUrl + ")");
           url = ("" + _this.options.redirect_url + (req.originalUrl.replace('//', '/'))) + (Object.keys(req.query).length > 0 ? "&uuid=" + id : "?uuid=" + id);
           return res.redirect(302, url);
         } else {
-          debug("" + req.count + ": Request UUID is " + (req.param('uuid')));
-          if (_this.key_cache[filename] && ((_ref = _this.key_cache[filename]) != null ? _ref.mtime : void 0) === stats.mtime.getTime() && _this.key_cache[filename].stream_key) {
-            return _this.streamPodcast(req, res, _this.key_cache[filename]);
-          } else {
-            mtime = stats.mtime.getTime();
-            return _this.checkForID3(filename, function(stream_key, id3) {
-              var k;
-              k = _this.key_cache[filename] = {
-                filename: filename,
-                mtime: mtime,
-                stream_key: stream_key,
-                id3: id3,
-                size: stats.size
-              };
-              return _this.streamPodcast(req, res, k);
-            });
-          }
+          return next();
         }
       };
-    })(this));
+    })(this);
+  };
+
+  Core.prototype.requestHandler = function() {
+    return (function(_this) {
+      return function(req, res, next) {
+        var mtime, _ref;
+        debug("" + req.count + ": Request UUID is " + req.query.uuid);
+        if (_this.key_cache[req.filename] && ((_ref = _this.key_cache[req.filename]) != null ? _ref.mtime : void 0) === req.fstats.mtime.getTime() && _this.key_cache[req.filename].stream_key) {
+          return _this.streamPodcast(req, res, _this.key_cache[req.filename]);
+        } else {
+          mtime = req.fstats.mtime.getTime();
+          return _this.checkForID3(req.filename, function(stream_key, id3) {
+            var k;
+            k = _this.key_cache[req.filename] = {
+              filename: req.filename,
+              mtime: mtime,
+              stream_key: stream_key,
+              id3: id3,
+              size: req.fstats.size
+            };
+            return _this.streamPodcast(req, res, k);
+          });
+        }
+      };
+    })(this);
   };
 
   Core.prototype.checkForID3 = function(filename, cb) {
@@ -116,7 +116,6 @@ module.exports = Core = (function() {
       return function() {
         var msgs;
         msgs = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-        return debug.apply(null, msgs);
       };
     })(this));
     parser.once("id3v2", (function(_this) {
@@ -147,8 +146,8 @@ module.exports = Core = (function() {
               return Buffer.concat(tags);
           }
         })();
-        debug("tag_buf is ", tag_buf);
-        debug("stream_key is ", h.stream_key);
+        debug("tag_buf is " + tag_buf);
+        debug("stream_key is " + h.stream_key);
         return cb(h.stream_key, tag_buf);
       };
     })(this));
@@ -162,7 +161,7 @@ module.exports = Core = (function() {
       return false;
     }
     rangeRequest = false;
-    if (_u.isString(req.headers.range)) {
+    if (_.isString(req.headers.range)) {
       rangeVals = req.headers.range.match(/^bytes ?= ?(\d+)?-(\d+)?$/);
       if (rangeVals) {
         rangeRequest = true;
@@ -186,7 +185,7 @@ module.exports = Core = (function() {
     }
     return this.loadPreroll(k.stream_key, req, (function(_this) {
       return function(predata) {
-        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, _ref, _ref1;
+        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, _decListener, _ref, _ref1;
         if (predata == null) {
           predata = null;
         }
@@ -247,6 +246,9 @@ module.exports = Core = (function() {
         prerollStart = ((_ref = k.id3) != null ? _ref.length : void 0) || 0;
         prerollEnd = prerollStart + ((predata != null ? predata.length : void 0) || 0);
         fileStart = prerollEnd;
+        _decListener = _.once(function() {
+          return _this.listeners--;
+        });
         if ((k.id3 != null) && rangeStart < k.id3.length) {
           debug("" + req.count + ": Writing id3 of ", k.id3.length, rangeStart, rangeEnd);
           res.write(k.id3.slice(rangeStart, rangeEnd + 1));
@@ -293,18 +295,25 @@ module.exports = Core = (function() {
           var _ref2;
           debug("" + req.count + ": (connection end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
           if (rstream != null ? rstream.readable : void 0) {
-            return rstream != null ? rstream.destroy() : void 0;
+            if (rstream != null) {
+              rstream.destroy();
+            }
           }
+          return _decListener();
         });
         req.connection.on("close", function() {
           debug("" + req.count + ": (conn close) in close. " + _this.listeners + " active downloads.");
-          return _this.listeners--;
+          return _decListener();
         });
         return req.connection.setTimeout(30 * 1000, function() {
+          debug("" + req.count + ": Connection timeout. Ending.");
           res.end();
           if (rstream != null ? rstream.readable : void 0) {
-            return rstream != null ? rstream.destroy() : void 0;
+            if (rstream != null) {
+              rstream.destroy();
+            }
           }
+          return _decListener();
         });
       };
     })(this));
@@ -313,8 +322,7 @@ module.exports = Core = (function() {
   Core.prototype.loadPreroll = function(key, req, cb) {
     var aborted, conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1, _ref2;
     count = req.count;
-    cb = _u.once(cb);
-    debug("" + count + ": preroller opts is ", this.options.preroll, key);
+    cb = _.once(cb);
     if (!(((_ref = this.options.preroll) != null ? _ref.server : void 0) && ((_ref1 = this.options.preroll) != null ? _ref1.key : void 0) && ((_ref2 = this.options.preroll) != null ? _ref2.path : void 0))) {
       if (typeof cb === "function") {
         cb();
@@ -340,10 +348,10 @@ module.exports = Core = (function() {
       return function(rres) {
         var buf_len, buffers;
         debug("" + count + ": got preroll response ", rres.statusCode);
+        clearTimeout(req_t);
         if (rres.statusCode === 200) {
           buffers = [];
           buf_len = 0;
-          clearTimeout(req_t);
           rres.on("readable", function() {
             var chunk, _results;
             _results = [];

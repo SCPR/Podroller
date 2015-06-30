@@ -1,0 +1,12 @@
+{
+    "debug": true,
+    "redirect_url": "http://127.0.0.1:3000",
+    "audio_dir": "./audio",
+    "port": 3000,
+    "prefix": "",
+    "preroll": {
+        "key": "podcast",
+        "path": "/pre/p",
+        "server": "campaigns.scprdev.org"
+    }
+}

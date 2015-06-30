@@ -1,5 +1,7 @@
 # Ignore npm modules... use npm shrinkwrap instead
 /node_modules/*
+passenger.*
+.DS_Store
 
 /*.mp3
 /audio/*
