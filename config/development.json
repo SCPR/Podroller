@@ -3,10 +3,17 @@
     "redirect_url": "http://127.0.0.1:3000",
     "audio_dir": "./audio",
     "port": 3000,
-    "prefix": "",
+    "prefixes": {
+      "/podcasts": {
+        "preroll_key": "podcast"
+      },
+      "/audio": {
+        "preroll_key": "ondemand"
+      }
+    },
     "preroll": {
-        "key": "podcast",
-        "path": "/pre/p",
-        "server": "127.0.0.1:3001"
+        "path":   "/pre/p",
+        "server": "127.0.0.1",
+        "port": "3001"
     }
 }

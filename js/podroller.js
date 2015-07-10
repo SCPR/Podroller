@@ -22,6 +22,7 @@ debug = require("debug")("podroller");
 
 module.exports = Core = (function() {
   function Core(options) {
+    var opts, p, papp, prefix, _ref, _ref1;
     this.options = options;
     this.checkForID3 = __bind(this.checkForID3, this);
     debug("Debug logging is enabled");
@@ -34,26 +35,49 @@ module.exports = Core = (function() {
     this.listeners = 0;
     this._counter = 0;
     this.app = express();
-    this.app.use(this.onlyValidFiles());
-    if (this.options.redirect_url) {
-      this.app.use(this.injectUUID());
+    if (Object.keys(this.options.prefixes).length > 0) {
+      _ref = this.options.prefixes;
+      for (p in _ref) {
+        opts = _ref[p];
+        papp = this._createApp(p, opts);
+        this.app.use(p, papp);
+        debug("Registered app handler for " + p);
+      }
+    } else {
+      prefix = this.options.prefix || "/";
+      papp = this._createApp(prefix, {
+        preroll_key: (_ref1 = this.options.preroll) != null ? _ref1.key : void 0
+      });
+      this.app.use(prefix);
     }
-    this.app.use(this.requestHandler());
     this.server = this.app.listen(this.options.port);
     debug("Listening on port " + this.options.port);
   }
 
+  Core.prototype._createApp = function(prefix, opts) {
+    var _app;
+    _app = express();
+    _app.use((function(_this) {
+      return function(req, res, next) {
+        req.podroller_prefix = prefix;
+        return next();
+      };
+    })(this));
+    _app.use(this.onlyValidFiles());
+    if (this.options.redirect_url) {
+      _app.use(this.injectUUID());
+    }
+    _app.use(this.requestHandler(opts));
+    return _app;
+  };
+
   Core.prototype.onlyValidFiles = function() {
     return (function(_this) {
       return function(req, res, next) {
-        var filename, match;
-        match = RegExp("^" + _this.options.prefix + "(.*)").exec(req.path);
-        if (!(match != null ? match[1] : void 0)) {
-          next();
-          return false;
-        }
+        var filename;
         req.count = _this._counter++;
-        filename = path.join(_this.options.audio_dir, match[1]);
+        filename = path.join(_this.options.audio_dir, req.path);
+        debug("" + req.count + ":" + req.podroller_prefix + ": Path is " + req.path);
         return fs.stat(filename, function(err, stats) {
           if (err || !stats.isFile()) {
             return res.status(404).end();
@@ -73,7 +97,7 @@ module.exports = Core = (function() {
         var id, url;
         if (!req.query.uuid) {
           id = uuid.v4();
-          debug("" + req.count + ": Redirecting with UUID of " + id + " (" + req.originalUrl + ")");
+          debug("" + req.count + ":" + req.podroller_prefix + ": Redirecting with UUID of " + id + " (" + req.originalUrl + ")");
           url = ("" + _this.options.redirect_url + (req.originalUrl.replace('//', '/'))) + (Object.keys(req.query).length > 0 ? "&uuid=" + id : "?uuid=" + id);
           return res.redirect(302, url);
         } else {
@@ -83,13 +107,13 @@ module.exports = Core = (function() {
     })(this);
   };
 
-  Core.prototype.requestHandler = function() {
+  Core.prototype.requestHandler = function(opts) {
     return (function(_this) {
       return function(req, res, next) {
         var mtime, _ref;
-        debug("" + req.count + ": Request UUID is " + req.query.uuid);
+        debug("" + req.count + ":" + req.podroller_prefix + ": Request UUID is " + req.query.uuid);
         if (_this.key_cache[req.filename] && ((_ref = _this.key_cache[req.filename]) != null ? _ref.mtime : void 0) === req.fstats.mtime.getTime() && _this.key_cache[req.filename].stream_key) {
-          return _this.streamPodcast(req, res, _this.key_cache[req.filename]);
+          return _this.streamPodcast(req, res, _this.key_cache[req.filename], opts.preroll_key);
         } else {
           mtime = req.fstats.mtime.getTime();
           return _this.checkForID3(req.filename, function(stream_key, id3) {
@@ -101,7 +125,7 @@ module.exports = Core = (function() {
               id3: id3,
               size: req.fstats.size
             };
-            return _this.streamPodcast(req, res, k);
+            return _this.streamPodcast(req, res, k, opts.preroll_key);
           });
         }
       };
@@ -155,7 +179,7 @@ module.exports = Core = (function() {
     return rstream.pipe(parser);
   };
 
-  Core.prototype.streamPodcast = function(req, res, k) {
+  Core.prototype.streamPodcast = function(req, res, k, preroll_key) {
     var rangeRequest, rangeVals, requestEnd, requestStart;
     if (req.connection.destroyed) {
       return false;
@@ -183,7 +207,7 @@ module.exports = Core = (function() {
         return false;
       }
     }
-    return this.loadPreroll(k.stream_key, req, (function(_this) {
+    return this.loadPreroll(k.stream_key, req, preroll_key, (function(_this) {
       return function(predata) {
         var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, _decListener, _ref, _ref1;
         if (predata == null) {
@@ -319,11 +343,11 @@ module.exports = Core = (function() {
     })(this));
   };
 
-  Core.prototype.loadPreroll = function(key, req, cb) {
-    var aborted, conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1, _ref2;
+  Core.prototype.loadPreroll = function(stream_key, req, preroll_key, cb) {
+    var aborted, conn, conn_pre_abort, count, opts, query, req_t, _ref, _ref1;
     count = req.count;
     cb = _.once(cb);
-    if (!(((_ref = this.options.preroll) != null ? _ref.server : void 0) && ((_ref1 = this.options.preroll) != null ? _ref1.key : void 0) && ((_ref2 = this.options.preroll) != null ? _ref2.path : void 0))) {
+    if (!(((_ref = this.options.preroll) != null ? _ref.server : void 0) && preroll_key && ((_ref1 = this.options.preroll) != null ? _ref1.path : void 0))) {
       if (typeof cb === "function") {
         cb();
       }
@@ -333,7 +357,8 @@ module.exports = Core = (function() {
     aborted = false;
     opts = {
       host: this.options.preroll.server,
-      path: [this.options.preroll.path, this.options.preroll.key, key, "?" + query].join("/")
+      port: this.options.preroll.port || 80,
+      path: [this.options.preroll.path, preroll_key, stream_key, "?" + query].join("/")
     };
     conn = req.connection;
     req_t = setTimeout((function(_this) {
@@ -343,7 +368,7 @@ module.exports = Core = (function() {
         return cb();
       };
     })(this), 750);
-    debug("firing preroll request", count);
+    debug("Firing preroll request", count, opts);
     req = http.get(opts, (function(_this) {
       return function(rres) {
         var buf_len, buffers;

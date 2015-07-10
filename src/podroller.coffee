@@ -28,27 +28,45 @@ module.exports = class Core
         # -- set up a server -- #
         @app = express()
 
-        @app.use @onlyValidFiles()
-        @app.use @injectUUID() if @options.redirect_url
-        @app.use @requestHandler()
+        if Object.keys(@options.prefixes).length > 0
+            for p,opts of @options.prefixes
+                papp = @_createApp(p,opts)
+                @app.use p, papp
+                debug "Registered app handler for #{p}"
+
+        else
+            prefix = @options.prefix||"/"
+            papp = @_createApp(prefix,preroll_key:@options.preroll?.key)
+            @app.use prefix
 
         @server = @app.listen @options.port
         debug "Listening on port #{ @options.port }"
 
     #----------
 
+    _createApp: (prefix,opts) ->
+        _app = express()
+
+        _app.use (req,res,next) =>
+            req.podroller_prefix = prefix
+            next()
+
+        _app.use @onlyValidFiles()
+        _app.use @injectUUID() if @options.redirect_url
+        _app.use @requestHandler(opts)
+
+        _app
+
+    #----------
+
     onlyValidFiles: ->
         (req,res,next) =>
-            # if we take prefix away from req.url, does it match an audio file?
-            match = ///^#{@options.prefix}(.*)///.exec req.path
-
-            if !match?[1]
-                next()
-                return false
-
             req.count = @_counter++
 
-            filename = path.join(@options.audio_dir, match[1])
+            filename = path.join(@options.audio_dir, req.path)
+
+            debug "#{req.count}:#{req.podroller_prefix}: Path is #{req.path}"
+
             fs.stat filename, (err, stats) =>
                 # if there was a stat error or this isn't a file, return a 404
                 if err || !stats.isFile()
@@ -64,7 +82,7 @@ module.exports = class Core
         (req,res,next) =>
             if !req.query.uuid
                 id = uuid.v4()
-                debug "#{req.count}: Redirecting with UUID of #{ id } (#{req.originalUrl})"
+                debug "#{req.count}:#{req.podroller_prefix}: Redirecting with UUID of #{ id } (#{req.originalUrl})"
                 url = "#{ @options.redirect_url }#{ req.originalUrl.replace('//','/') }" + (if Object.keys(req.query).length > 0 then "&uuid=#{id}" else "?uuid=#{id}")
                 res.redirect 302, url
             else
@@ -72,9 +90,9 @@ module.exports = class Core
 
     #----------
 
-    requestHandler: ->
+    requestHandler: (opts) ->
         (req, res, next) =>
-            debug "#{req.count}: Request UUID is #{ req.query.uuid }"
+            debug "#{req.count}:#{req.podroller_prefix}: Request UUID is #{ req.query.uuid }"
             # is this a file we already know about?
             # if so, has it not been changed?
             if @key_cache[req.filename] &&
@@ -82,7 +100,7 @@ module.exports = class Core
             @key_cache[req.filename].stream_key
                 # we're good.  use the cached stream key
                 # for preroll, then send our file
-                @streamPodcast req, res, @key_cache[req.filename]
+                @streamPodcast req, res, @key_cache[req.filename], opts.preroll_key
             else
                 # never seen this one, or it's changed since we saw it
                 # -- validate it and get its audio settings -- #
@@ -103,7 +121,7 @@ module.exports = class Core
                         id3:        id3
                         size:       req.fstats.size
 
-                    @streamPodcast(req, res, k)
+                    @streamPodcast req, res, k, opts.preroll_key
 
     #----------
 
@@ -150,7 +168,7 @@ module.exports = class Core
 
     #----------
 
-    streamPodcast: (req, res, k) ->
+    streamPodcast: (req, res, k, preroll_key) ->
         return false if req.connection.destroyed
 
         # Check if this is a range request
@@ -179,7 +197,7 @@ module.exports = class Core
                 res.end "416 Requested Range Not Valid"
                 return false
 
-        @loadPreroll k.stream_key, req, (predata = null) =>
+        @loadPreroll k.stream_key, req, preroll_key, (predata = null) =>
             if req.connection.destroyed
                 # we died enroute
                 debug "Request was aborted."
@@ -332,14 +350,14 @@ module.exports = class Core
 
     #----------
 
-    loadPreroll: (key, req, cb) ->
+    loadPreroll: (stream_key, req, preroll_key, cb) ->
         count = req.count
 
         cb = _.once cb
 
         # short-circuit if we're missing any options
         unless @options.preroll?.server &&
-        @options.preroll?.key &&
+        preroll_key &&
         @options.preroll?.path
             cb?()
             return true
@@ -351,10 +369,11 @@ module.exports = class Core
 
         opts =
             host: @options.preroll.server
+            port: @options.preroll.port || 80
             path: [
                 @options.preroll.path,
-                @options.preroll.key,
-                key, "?" + query
+                preroll_key,
+                stream_key, "?" + query
             ].join("/")
 
         conn = req.connection
@@ -366,7 +385,7 @@ module.exports = class Core
             cb()
         , 750
 
-        debug "firing preroll request", count
+        debug "Firing preroll request", count, opts
         req = http.get opts, (rres) =>
             debug "#{count}: got preroll response ", rres.statusCode
 
