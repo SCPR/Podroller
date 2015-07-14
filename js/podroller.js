@@ -144,13 +144,11 @@ module.exports = Core = (function() {
     })(this));
     parser.once("id3v2", (function(_this) {
       return function(buf) {
-        debug("got an id3v2 of ", buf.length);
         return tags.push(buf);
       };
     })(this));
     parser.once("id3v1", (function(_this) {
       return function(buf) {
-        debug("got an id3v1 of ", buf.length);
         return tags.push(buf);
       };
     })(this));
@@ -327,6 +325,11 @@ module.exports = Core = (function() {
         });
         req.connection.on("close", function() {
           debug("" + req.count + ": (conn close) in close. " + _this.listeners + " active downloads.");
+          if (rstream != null ? rstream.readable : void 0) {
+            if (rstream != null) {
+              rstream.destroy();
+            }
+          }
           return _decListener();
         });
         return req.connection.setTimeout(30 * 1000, function() {
@@ -412,6 +415,9 @@ module.exports = Core = (function() {
         debug("" + count + ": got a request error.", err);
         conn.removeListener("close", conn_pre_abort);
         conn.removeListener("end", conn_pre_abort);
+        if (req_t) {
+          clearTimeout(req_t);
+        }
         cb();
         return true;
       };

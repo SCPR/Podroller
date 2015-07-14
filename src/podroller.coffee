@@ -135,12 +135,12 @@ module.exports = class Core
 
         parser.once "id3v2", (buf) =>
             # got an ID3v2
-            debug "got an id3v2 of ", buf.length
+            #debug "got an id3v2 of ", buf.length
             tags.push buf
 
         parser.once "id3v1", (buf) =>
             # got an ID3v1
-            debug "got an id3v1 of ", buf.length
+            #debug "got an id3v1 of ", buf.length
             tags.push buf
 
         parser.once "frame", (buf,h) =>
@@ -339,6 +339,7 @@ module.exports = class Core
 
             req.connection.on "close", =>
                 debug "#{req.count}: (conn close) in close. #{@listeners} active downloads."
+                rstream?.destroy() if rstream?.readable
                 _decListener()
 
             req.connection.setTimeout 30*1000, =>
@@ -430,6 +431,9 @@ module.exports = class Core
             debug "#{count}: got a request error.", err
             conn.removeListener "close", conn_pre_abort
             conn.removeListener "end", conn_pre_abort
+
+            clearTimeout req_t if req_t
+
             cb()
             return true
 
