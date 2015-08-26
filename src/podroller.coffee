@@ -39,7 +39,9 @@ module.exports = class Core
             papp = @_createApp(prefix,preroll_key:@options.preroll?.key)
             @app.use prefix
 
-        @server = @app.listen @options.port
+        @server = http.createServer(allowHalfOpen:true,@app)
+        @server.listen @options.port
+        #@server = @app.listen @options.port
         debug "Listening on port #{ @options.port }"
 
     #----------
