@@ -50,7 +50,10 @@ module.exports = Core = (function() {
       });
       this.app.use(prefix);
     }
-    this.server = this.app.listen(this.options.port);
+    this.server = http.createServer({
+      allowHalfOpen: true
+    }, this.app);
+    this.server.listen(this.options.port);
     debug("Listening on port " + this.options.port);
   }
 
