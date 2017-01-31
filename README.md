@@ -9,7 +9,7 @@
 Podroller delivers prerolled audio files without caching the concatenated
 files on disk.
 
-It can also inject a session UUID to make _204 Partial Content_ requests easier
+It can also inject a session UUID to make _206 Partial Content_ requests easier
 to de-duplicate.
 
 # Requirements
