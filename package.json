@@ -1,27 +1,38 @@
 {
   "name": "podroller",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Add audio prepends to podcast files on-the-fly.",
-  "keywords": ["audio","podcast"],
+  "keywords": [
+    "audio",
+    "podcast"
+  ],
   "homepage": "http://github.com/SCPR/Podroller/",
-  "author": {"name": "Eric Richardson", "url": "http://ewr.is"},
-  "repository": {"type": "git", "url": "http://github.com/SCPR/Podroller.git"},
+  "author": {
+    "name": "SCPR",
+    "url": "https://www.scpr.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/SCPR/Podroller.git"
+  },
   "license": "MIT",
   "main": "./index.js",
   "dependencies": {
-    "express":    "^4.12.0",
-    "nconf":      "0.6.9",
-    "strtok":     "0.1.1",
+    "debug": "~2.1.1",
+    "express": "^4.12.0",
+    "nconf": "0.6.9",
+    "node-uuid": "~1.4.1",
+    "qs": "~0.6.0",
+    "request": "^2.81.0",
+    "sm-parsers": "~0.1.0",
+    "strtok": "0.1.1",
     "underscore": "1.3.3",
-    "qs":         "~0.6.0",
-    "node-uuid":  "~1.4.1",
-    "debug":      "~2.1.1",
-    "sm-parsers": "~0.1.0"
+    "universal-analytics": "^0.4.15"
   },
   "devDependencies": {
-    "coffee-script":        "^1.8.0",
-    "grunt":                "^0.4.5",
-    "grunt-cli":            "^0.1.13",
+    "coffee-script": "^1.8.0",
+    "grunt": "^0.4.5",
+    "grunt-cli": "^0.1.13",
     "grunt-contrib-coffee": "^0.12.0"
   },
   "scripts": {

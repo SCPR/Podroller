@@ -8,12 +8,13 @@
         "preroll_key": "podcast"
       },
       "/audio": {
-        "preroll_key": "ondemand"
+        "preroll_key": "podcast"
       }
     },
     "preroll": {
-        "path":   "/pre/p",
-        "server": "127.0.0.1",
-        "port": "3001"
+      "key": "podcast",
+      "path": "/pre/p",
+      "server": "campaigns.scprdev.org",
+      "port": 443
     }
 }

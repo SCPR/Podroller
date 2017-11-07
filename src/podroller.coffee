@@ -3,11 +3,14 @@ path        = require 'path'
 express     = require 'express'
 fs          = require "fs"
 http        = require "http"
+https       = require "https"
 Parser      = (require "sm-parsers").MP3
 qs          = require 'qs'
 uuid        = require "node-uuid"
-
+ua          = require 'universal-analytics'
 debug       = require("debug")("podroller")
+
+GA_ID       = 'UA-624724-15'
 
 module.exports = class Core
     constructor: (@options) ->
@@ -39,7 +42,7 @@ module.exports = class Core
             papp = @_createApp(prefix,preroll_key:@options.preroll?.key)
             @app.use prefix
 
-        @server = http.createServer(allowHalfOpen:true,@app)
+        @server = http.createServer(@app)
         @server.listen @options.port
         #@server = @app.listen @options.port
         debug "Listening on port #{ @options.port }"
@@ -221,6 +224,11 @@ module.exports = class Core
 
             @listeners++
 
+            # Track each podcast download in Google Analytics
+            if preroll_key == 'podcast'
+                visitor = ua(GA_ID)
+                visitor.event("Podcast", "Download", k.filename).send()
+
             rangeStart  = 0
             rangeEnd    = fend
 
@@ -389,7 +397,7 @@ module.exports = class Core
         , 750
 
         debug "Firing preroll request", count, opts
-        req = http.get opts, (rres) =>
+        req = https.get opts, (rres) =>
             debug "#{count}: got preroll response ", rres.statusCode
 
             # clear our abort timer

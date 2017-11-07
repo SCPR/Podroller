@@ -1,4 +1,4 @@
-var Core, Parser, debug, express, fs, http, path, qs, uuid, _,
+var Core, GA_ID, Parser, debug, express, fs, http, https, path, qs, ua, uuid, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
@@ -12,13 +12,19 @@ fs = require("fs");
 
 http = require("http");
 
+https = require("https");
+
 Parser = (require("sm-parsers")).MP3;
 
 qs = require('qs');
 
 uuid = require("node-uuid");
 
+ua = require('universal-analytics');
+
 debug = require("debug")("podroller");
+
+GA_ID = 'UA-624724-15';
 
 module.exports = Core = (function() {
   function Core(options) {
@@ -50,9 +56,7 @@ module.exports = Core = (function() {
       });
       this.app.use(prefix);
     }
-    this.server = http.createServer({
-      allowHalfOpen: true
-    }, this.app);
+    this.server = http.createServer(this.app);
     this.server.listen(this.options.port);
     debug("Listening on port " + this.options.port);
   }
@@ -210,7 +214,7 @@ module.exports = Core = (function() {
     }
     return this.loadPreroll(k.stream_key, req, preroll_key, (function(_this) {
       return function(predata) {
-        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, _decListener, _ref, _ref1;
+        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, visitor, _decListener, _ref, _ref1;
         if (predata == null) {
           predata = null;
         }
@@ -225,6 +229,10 @@ module.exports = Core = (function() {
         debug("" + req.count + ": size:", fsize);
         debug("" + req.count + ": Preroll data length is : " + ((predata != null ? predata.length : void 0) || 0));
         _this.listeners++;
+        if (preroll_key === 'podcast') {
+          visitor = ua(GA_ID);
+          visitor.event("Podcast", "Download", k.filename).send();
+        }
         rangeStart = 0;
         rangeEnd = fend;
         if (rangeRequest) {
@@ -375,7 +383,7 @@ module.exports = Core = (function() {
       };
     })(this), 750);
     debug("Firing preroll request", count, opts);
-    req = http.get(opts, (function(_this) {
+    req = https.get(opts, (function(_this) {
       return function(rres) {
         var buf_len, buffers;
         debug("" + count + ": got preroll response ", rres.statusCode);
