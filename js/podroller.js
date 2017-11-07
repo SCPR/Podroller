@@ -1,4 +1,4 @@
-var Core, Parser, debug, express, fs, http, https, path, qs, uuid, _,
+var Core, GA_ID, Parser, debug, express, fs, http, https, path, qs, ua, uuid, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
@@ -20,7 +20,11 @@ qs = require('qs');
 
 uuid = require("node-uuid");
 
+ua = require('universal-analytics');
+
 debug = require("debug")("podroller");
+
+GA_ID = 'UA-624724-15';
 
 module.exports = Core = (function() {
   function Core(options) {

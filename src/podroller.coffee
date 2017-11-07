@@ -10,6 +10,8 @@ uuid        = require "node-uuid"
 ua          = require 'universal-analytics'
 debug       = require("debug")("podroller")
 
+GA_ID       = 'UA-624724-15'
+
 module.exports = class Core
     constructor: (@options) ->
         debug "Debug logging is enabled"
@@ -40,7 +42,8 @@ module.exports = class Core
             papp = @_createApp(prefix,preroll_key:@options.preroll?.key)
             @app.use prefix
 
-        @server = http.createServer(allowHalfOpen:true,@app)
+#        @server = http.createServer(allowHalfOpen:true,@app)
+        @server = http.createServer(@app)
         @server.listen @options.port
         #@server = @app.listen @options.port
         debug "Listening on port #{ @options.port }"
