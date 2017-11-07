@@ -1,4 +1,4 @@
-var Core, Parser, debug, express, fs, http, path, qs, uuid, _,
+var Core, Parser, debug, express, fs, http, https, path, qs, uuid, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
@@ -11,6 +11,8 @@ express = require('express');
 fs = require("fs");
 
 http = require("http");
+
+https = require("https");
 
 Parser = (require("sm-parsers")).MP3;
 
@@ -50,9 +52,7 @@ module.exports = Core = (function() {
       });
       this.app.use(prefix);
     }
-    this.server = http.createServer({
-      allowHalfOpen: true
-    }, this.app);
+    this.server = http.createServer(this.app);
     this.server.listen(this.options.port);
     debug("Listening on port " + this.options.port);
   }
@@ -375,7 +375,7 @@ module.exports = Core = (function() {
       };
     })(this), 750);
     debug("Firing preroll request", count, opts);
-    req = http.get(opts, (function(_this) {
+    req = https.get(opts, (function(_this) {
       return function(rres) {
         var buf_len, buffers;
         debug("" + count + ": got preroll response ", rres.statusCode);

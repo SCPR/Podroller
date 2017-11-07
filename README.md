@@ -18,6 +18,9 @@ Podroller currently expects to get transcoded preroll and doesn't have any
 sense of impression tracking. At SCPR, this preroll is delivered by
 [Adhost](https://github.com/scpr/Adhost).
 
+* node & NPM
+* grunt
+
 # Who
 
 Podroller is used by [Southern California Public Radio](http://www.scpr.org).

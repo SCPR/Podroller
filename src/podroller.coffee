@@ -3,10 +3,11 @@ path        = require 'path'
 express     = require 'express'
 fs          = require "fs"
 http        = require "http"
+https       = require "https"
 Parser      = (require "sm-parsers").MP3
 qs          = require 'qs'
 uuid        = require "node-uuid"
-
+ua          = require 'universal-analytics'
 debug       = require("debug")("podroller")
 
 module.exports = class Core
@@ -389,7 +390,7 @@ module.exports = class Core
         , 750
 
         debug "Firing preroll request", count, opts
-        req = http.get opts, (rres) =>
+        req = https.get opts, (rres) =>
             debug "#{count}: got preroll response ", rres.statusCode
 
             # clear our abort timer
