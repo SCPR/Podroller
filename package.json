@@ -8,8 +8,8 @@
   ],
   "homepage": "http://github.com/SCPR/Podroller/",
   "author": {
-    "name": "Eric Richardson",
-    "url": "http://ewr.is"
+    "name": "SCPR",
+    "url": "https://www.scpr.org/"
   },
   "repository": {
     "type": "git",
@@ -21,7 +21,6 @@
     "debug": "~2.1.1",
     "express": "^4.12.0",
     "nconf": "0.6.9",
-    "node-sass": "^4.6.0",
     "node-uuid": "~1.4.1",
     "qs": "~0.6.0",
     "request": "^2.81.0",

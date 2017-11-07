@@ -42,7 +42,6 @@ module.exports = class Core
             papp = @_createApp(prefix,preroll_key:@options.preroll?.key)
             @app.use prefix
 
-#        @server = http.createServer(allowHalfOpen:true,@app)
         @server = http.createServer(@app)
         @server.listen @options.port
         #@server = @app.listen @options.port
@@ -224,6 +223,11 @@ module.exports = class Core
             debug "#{req.count}: Preroll data length is : #{ predata?.length || 0}"
 
             @listeners++
+
+            # Track each podcast download in Google Analytics
+            if preroll_key == 'podcast'
+                visitor = ua(GA_ID)
+                visitor.event("Podcast", "Download", k.filename).send()
 
             rangeStart  = 0
             rangeEnd    = fend

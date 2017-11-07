@@ -4,6 +4,6 @@ passenger.*
 .DS_Store
 
 /*.mp3
-/audio/*
+/audio/**/*
 results
 npm-debug.log
