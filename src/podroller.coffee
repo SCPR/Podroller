@@ -225,9 +225,10 @@ module.exports = class Core
             @listeners++
 
             # Track each podcast download in Google Analytics
-            if preroll_key == 'podcast'
+            reqUuid = @isRealDownloadAndReturnsUuid(req)
+            if preroll_key == 'podcast' && reqUuid
                 visitor = ua(GA_ID)
-                visitor.event("Podcast", "Download", k.filename).send()
+                visitor.event("Podcast", "Download", k.filename, reqUuid).send()
 
             rangeStart  = 0
             rangeEnd    = fend
@@ -359,7 +360,16 @@ module.exports = class Core
                 rstream?.destroy() if rstream?.readable
                 _decListener()
 
+
     #----------
+    isRealDownloadAndReturnsUuid: (req) ->
+        console.log(req)
+        if req.headers['user-agent'].match(/bot/i)
+            return false
+        if !req.query || !req.query.uuid
+            return false
+        return req.query.uuid
+#----------
 
     loadPreroll: (stream_key, req, preroll_key, cb) ->
         count = req.count

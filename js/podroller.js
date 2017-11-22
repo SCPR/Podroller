@@ -214,7 +214,7 @@ module.exports = Core = (function() {
     }
     return this.loadPreroll(k.stream_key, req, preroll_key, (function(_this) {
       return function(predata) {
-        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, visitor, _decListener, _ref, _ref1;
+        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, reqUuid, rstream, visitor, _decListener, _ref, _ref1;
         if (predata == null) {
           predata = null;
         }
@@ -229,9 +229,10 @@ module.exports = Core = (function() {
         debug("" + req.count + ": size:", fsize);
         debug("" + req.count + ": Preroll data length is : " + ((predata != null ? predata.length : void 0) || 0));
         _this.listeners++;
-        if (preroll_key === 'podcast') {
+        reqUuid = _this.isRealDownloadAndReturnsUuid(req);
+        if (preroll_key === 'podcast' && reqUuid) {
           visitor = ua(GA_ID);
-          visitor.event("Podcast", "Download", k.filename).send();
+          visitor.event("Podcast", "Download", k.filename, reqUuid).send();
         }
         rangeStart = 0;
         rangeEnd = fend;
@@ -355,6 +356,17 @@ module.exports = Core = (function() {
         });
       };
     })(this));
+  };
+
+  Core.prototype.isRealDownloadAndReturnsUuid = function(req) {
+    console.log(req);
+    if (req.headers['user-agent'].match(/bot/i)) {
+      return false;
+    }
+    if (!req.query || !req.query.uuid) {
+      return false;
+    }
+    return req.query.uuid;
   };
 
   Core.prototype.loadPreroll = function(stream_key, req, preroll_key, cb) {
