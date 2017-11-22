@@ -363,7 +363,6 @@ module.exports = class Core
 
     #----------
     isRealDownloadAndReturnsUuid: (req) ->
-        console.log(req)
         if req.headers['user-agent'].match(/bot/i)
             return false
         if !req.query || !req.query.uuid
