@@ -9,7 +9,6 @@ qs          = require 'qs'
 uuid        = require "node-uuid"
 ua          = require 'universal-analytics'
 debug       = require("debug")("podroller")
-
 GA_ID       = 'UA-624724-15'
 
 module.exports = class Core
@@ -175,11 +174,9 @@ module.exports = class Core
 
     streamPodcast: (req, res, k, preroll_key) ->
         return false if req.connection.destroyed
-
         # Check if this is a range request
         # False by default
         rangeRequest = false
-
         if _.isString(req.headers.range)
             rangeVals    = req.headers.range.match(/^bytes ?= ?(\d+)?-(\d+)?$/)
 
@@ -223,12 +220,6 @@ module.exports = class Core
             debug "#{req.count}: Preroll data length is : #{ predata?.length || 0}"
 
             @listeners++
-
-            # Track each podcast download in Google Analytics
-            reqUuid = @isRealDownloadAndReturnsUuid(req)
-            if preroll_key == 'podcast' && reqUuid
-                visitor = ua(GA_ID)
-                visitor.event("Podcast", "Download", k.filename, reqUuid).send()
 
             rangeStart  = 0
             rangeEnd    = fend
@@ -332,12 +323,14 @@ module.exports = class Core
                 debug "#{req.count}: read stream opts are", readStreamOpts
                 rstream = fs.createReadStream k.filename, readStreamOpts
                 rstream.pipe res, end: false
+                @triggerGAEvent(req, preroll_key, k.filename)
 
                 rstream.on "end", =>
                     # got to the end of the file.  close our response
                     debug "#{req.count}: (stream end) wrote #{ res.socket?.bytesWritten } bytes. #{@listeners} active downloads."
                     res.end()
                     rstream.destroy()
+
             else
                 res.end()
 
@@ -360,8 +353,20 @@ module.exports = class Core
                 rstream?.destroy() if rstream?.readable
                 _decListener()
 
+#----------
+    triggerGAEvent: (req, preroll_key, filename) ->
+        reqUuid = @isRealDownloadAndReturnsUuid(req)
+        if preroll_key == 'podcast' && reqUuid
+            visitor = ua(GA_ID)
+            visitor.event(
+                {
+                    ec: "Podcast",
+                    ea: "Download",
+                    el: filename,
+                    uid: reqUuid
+                }).send()
 
-    #----------
+#----------
     isRealDownloadAndReturnsUuid: (req) ->
         if req.headers['user-agent'].match(/bot/i)
             return false

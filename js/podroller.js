@@ -214,7 +214,7 @@ module.exports = Core = (function() {
     }
     return this.loadPreroll(k.stream_key, req, preroll_key, (function(_this) {
       return function(predata) {
-        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, reqUuid, rstream, visitor, _decListener, _ref, _ref1;
+        var fend, fileStart, fsize, fstart, headers, length, prerollEnd, prerollStart, pstart, rangeEnd, rangeStart, readStreamOpts, rstream, _decListener, _ref, _ref1;
         if (predata == null) {
           predata = null;
         }
@@ -229,11 +229,6 @@ module.exports = Core = (function() {
         debug("" + req.count + ": size:", fsize);
         debug("" + req.count + ": Preroll data length is : " + ((predata != null ? predata.length : void 0) || 0));
         _this.listeners++;
-        reqUuid = _this.isRealDownloadAndReturnsUuid(req);
-        if (preroll_key === 'podcast' && reqUuid) {
-          visitor = ua(GA_ID);
-          visitor.event("Podcast", "Download", k.filename, reqUuid).send();
-        }
         rangeStart = 0;
         rangeEnd = fend;
         if (rangeRequest) {
@@ -316,6 +311,7 @@ module.exports = Core = (function() {
           rstream.pipe(res, {
             end: false
           });
+          _this.triggerGAEvent(req, preroll_key, k.filename);
           rstream.on("end", function() {
             var _ref2;
             debug("" + req.count + ": (stream end) wrote " + ((_ref2 = res.socket) != null ? _ref2.bytesWritten : void 0) + " bytes. " + _this.listeners + " active downloads.");
@@ -356,6 +352,20 @@ module.exports = Core = (function() {
         });
       };
     })(this));
+  };
+
+  Core.prototype.triggerGAEvent = function(req, preroll_key, filename) {
+    var reqUuid, visitor;
+    reqUuid = this.isRealDownloadAndReturnsUuid(req);
+    if (preroll_key === 'podcast' && reqUuid) {
+      visitor = ua(GA_ID);
+      return visitor.event({
+        ec: "Podcast",
+        ea: "Download",
+        el: filename,
+        uid: reqUuid
+      }).send();
+    }
   };
 
   Core.prototype.isRealDownloadAndReturnsUuid = function(req) {
