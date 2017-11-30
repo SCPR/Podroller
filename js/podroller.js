@@ -363,7 +363,7 @@ module.exports = Core = (function() {
         ec: "Podcast",
         ea: "Download",
         el: filename,
-        uid: reqUuid
+        cd1: reqUuid
       }).send();
     }
   };
