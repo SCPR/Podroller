@@ -16,5 +16,9 @@
       "path": "/pre/p",
       "server": "campaigns.scprdev.org",
       "port": 443
+    },
+    "google_analytics": {
+      "property": "",
+      "custom_dimension": ""
     }
 }

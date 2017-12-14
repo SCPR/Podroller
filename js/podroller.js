@@ -369,7 +369,6 @@ module.exports = Core = (function() {
       if (this.options.google_analytics.custom_dimension) {
         eventProperties[this.options.google_analytics.custom_dimension] = reqUuid;
       }
-      end;
       return visitor.event(eventProperties).send();
     }
   };

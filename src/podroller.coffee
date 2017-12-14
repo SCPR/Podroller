@@ -367,7 +367,6 @@ module.exports = class Core
             }
             if @options.google_analytics.custom_dimension
                 eventProperties[@options.google_analytics.custom_dimension] = reqUuid
-            end
             visitor.event(eventProperties).send()
 
 #----------
