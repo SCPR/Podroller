@@ -24,7 +24,7 @@ ua = require('universal-analytics');
 
 debug = require("debug")("podroller");
 
-GA_ID = 'UA-624724-15';
+GA_ID = 'UA-624724-1';
 
 module.exports = Core = (function() {
   function Core(options) {
@@ -363,7 +363,7 @@ module.exports = Core = (function() {
         ec: "Podcast",
         ea: "Download",
         el: filename,
-        cd1: reqUuid
+        cd25: reqUuid
       }).send();
     }
   };
