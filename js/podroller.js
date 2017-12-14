@@ -1,4 +1,4 @@
-var Core, GA_ID, Parser, debug, express, fs, http, https, path, qs, ua, uuid, _,
+var Core, Parser, debug, express, fs, http, https, path, qs, ua, uuid, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __slice = [].slice;
 
@@ -23,8 +23,6 @@ uuid = require("node-uuid");
 ua = require('universal-analytics');
 
 debug = require("debug")("podroller");
-
-GA_ID = 'UA-624724-1';
 
 module.exports = Core = (function() {
   function Core(options) {
@@ -355,16 +353,24 @@ module.exports = Core = (function() {
   };
 
   Core.prototype.triggerGAEvent = function(req, preroll_key, filename) {
-    var reqUuid, visitor;
+    var eventProperties, gaId, reqUuid, visitor;
+    gaId = this.options.google_analytics.property;
+    if (!gaId) {
+      return;
+    }
     reqUuid = this.isRealDownloadAndReturnsUuid(req);
     if (preroll_key === 'podcast' && reqUuid) {
-      visitor = ua(GA_ID);
-      return visitor.event({
+      visitor = ua(gaId);
+      eventProperties = {
         ec: "Podcast",
         ea: "Download",
-        el: filename,
-        cd25: reqUuid
-      }).send();
+        el: filename
+      };
+      if (this.options.google_analytics.custom_dimension) {
+        eventProperties[this.options.google_analytics.custom_dimension] = reqUuid;
+      }
+      end;
+      return visitor.event(eventProperties).send();
     }
   };
 

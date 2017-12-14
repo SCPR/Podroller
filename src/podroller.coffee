@@ -9,7 +9,6 @@ qs          = require 'qs'
 uuid        = require "node-uuid"
 ua          = require 'universal-analytics'
 debug       = require("debug")("podroller")
-GA_ID       = 'UA-624724-1'
 
 module.exports = class Core
     constructor: (@options) ->
@@ -355,16 +354,21 @@ module.exports = class Core
 
 #----------
     triggerGAEvent: (req, preroll_key, filename) ->
+        gaId = @options.google_analytics.property
+        if !gaId
+            return
         reqUuid = @isRealDownloadAndReturnsUuid(req)
         if preroll_key == 'podcast' && reqUuid
-            visitor = ua(GA_ID)
-            visitor.event(
-                {
-                    ec: "Podcast",
-                    ea: "Download",
-                    el: filename,
-                    cd25: reqUuid
-                }).send()
+            visitor = ua(gaId)
+            eventProperties = {
+                ec: "Podcast",
+                ea: "Download",
+                el: filename
+            }
+            if @options.google_analytics.custom_dimension
+                eventProperties[@options.google_analytics.custom_dimension] = reqUuid
+            end
+            visitor.event(eventProperties).send()
 
 #----------
     isRealDownloadAndReturnsUuid: (req) ->
