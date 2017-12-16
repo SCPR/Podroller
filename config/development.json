@@ -18,7 +18,7 @@
       "port": 443
     },
     "google_analytics": {
-      "property": "",
-      "custom_dimension": ""
+      "property": "UA-624724-1",
+      "custom_dimension": "cd25"
     }
 }

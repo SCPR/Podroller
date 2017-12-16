@@ -354,6 +354,8 @@ module.exports = class Core
 
 #----------
     triggerGAEvent: (req, preroll_key, filename) ->
+        if !@options.google_analytics
+            return
         gaId = @options.google_analytics.property
         if !gaId
             return

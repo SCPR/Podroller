@@ -354,6 +354,9 @@ module.exports = Core = (function() {
 
   Core.prototype.triggerGAEvent = function(req, preroll_key, filename) {
     var eventProperties, gaId, reqUuid, visitor;
+    if (!this.options.google_analytics) {
+      return;
+    }
     gaId = this.options.google_analytics.property;
     if (!gaId) {
       return;
