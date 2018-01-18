@@ -377,7 +377,7 @@ module.exports = Core = (function() {
   };
 
   Core.prototype.isRealDownloadAndReturnsUuid = function(req) {
-    if (req.headers['user-agent'].match(/bot/i)) {
+    if (req.headers['user-agent'] && req.headers['user-agent'].match(/bot/i)) {
       return false;
     }
     if (!req.query || !req.query.uuid) {
